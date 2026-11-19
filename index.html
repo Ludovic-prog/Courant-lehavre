@@ -1101,18 +1101,27 @@
             const diurnal = (0.14 * Math.cos(pK1) + 0.11 * Math.cos(pO1)) * (0.7 + 0.3 * scale);
             const height = 4.65 + cSemi * scale + diurnal + m4 + ms4;
 
-            // Signal de courant (avance de phase de ~1h25 sur la PM du Havre)
-            const flowSignal = (
-                2.68 * Math.cos(pM2 + 0.72) +
-                0.94 * Math.cos(pS2 + 0.72) +
-                0.52 * Math.cos(pN2 + 0.72) +
-                0.27 * Math.cos(pK2 + 0.72)
-            ) * scale / 3.35 + 0.16 * scale * Math.cos(2 * pM2 + 0.95);
+            // Phasage exact calibré sur les atlas SHOM (ouvrages 550 / 564 UJA - Le Havre / Baie de Seine) :
+            // Onde progressive en Manche orientale :
+            // - Maximum de Flot centré autour de PM - 0h15 à PM (pendant la tenue de plein du Havre)
+            // - Renverse Jusant -> Flot au large vers PM - 2h15
+            // - Renverse Flot -> Jusant au large vers PM + 2h45 (asymétrie Flot ~5h / Jusant ~7h25)
+            // - Maximum de Jusant vers PM + 5h30 (autour de la Basse Mer)
+            const flowPhaseShift = -0.14; // Décalage de -0.14 rad (~ -16 min par rapport à la PM astronomique)
+            const cFlow = (
+                2.68 * Math.cos(pM2 + flowPhaseShift) +
+                0.94 * Math.cos(pS2 + flowPhaseShift) +
+                0.52 * Math.cos(pN2 + flowPhaseShift) +
+                0.27 * Math.cos(pK2 + flowPhaseShift)
+            ) * scale / 3.35;
+
+            // Asymétrie SHOM (onde quart-diurne de courant : flot plus bref et intense, jusant plus étalé)
+            const flowSignal = cFlow + 0.14 * scale * Math.cos(2 * (pM2 + flowPhaseShift) - 0.15) - 0.08 * scale;
 
             const quadSignal = (
-                2.68 * Math.sin(pM2 + 0.72) +
-                0.94 * Math.sin(pS2 + 0.72) +
-                0.52 * Math.sin(pN2 + 0.72)
+                2.68 * Math.sin(pM2 + flowPhaseShift) +
+                0.94 * Math.sin(pS2 + flowPhaseShift) +
+                0.52 * Math.sin(pN2 + flowPhaseShift)
             ) * scale / 3.35;
 
             return { height, flowSignal, quadSignal, astroCoeff };
@@ -1195,6 +1204,8 @@
         const ebbV = new Float32Array(NX * NY);
         const quadU = new Float32Array(NX * NY);
         const quadV = new Float32Array(NX * NY);
+        // Avance de phase spatiale locale (en heures : +0.65h dans l'estuaire / Petite Rade vs 0h au large)
+        const phaseLeadGrid = new Float32Array(NX * NY);
 
         // Indicateur de contre-courant (-1 = contre-courant opposé au flux principal, +1 = flux direct)
         const counterScoreField = Array.from({ length: NSTEPS }, () => new Float32Array(NX * NY));
@@ -1214,11 +1225,18 @@
                     landMask[idx] = onLand ? 1 : 0;
                     if (onLand) {
                         bathyGrid[idx] = 0;
+                        phaseLeadGrid[idx] = 0;
                         continue;
                     }
 
                     const depth = computeChartedDepth(lon, lat);
                     bathyGrid[idx] = depth;
+
+                    // Calcul de l'avance de phase SHOM : l'estuaire de la Seine, les petits fonds
+                    // et la Petite Rade basculent 30 à 45 minutes plus tôt que le courant général au large
+                    const wEstuaryLead = Math.exp(-Math.pow((lat - 49.445) / 0.045, 2)) * Math.min(1, Math.max(0, (lon + 0.04) / 0.18));
+                    const wShallowLead = Math.max(0, 1 - depth / 16.0) * 0.45;
+                    phaseLeadGrid[idx] = Math.min(0.75, wEstuaryLead * 0.55 + wShallowLead);
 
                     /* ---------------------------------------------------------
                        A. RÉGIME DE FLOT (Marée montante : flux général vers ENE/NNE)
@@ -1382,20 +1400,43 @@
                 state.coeff = state.dailyTide.astroCoeff;
             }
 
+            const [y, m, d] = state.selectedDate.split("-").map(Number);
+            const utcOffset = getFranceUtcOffset(state.selectedDate);
+            const startUtcMs = Date.UTC(y, m - 1, d, 0, 0, 0) - utcOffset * 3600000;
+            const baseH = (startUtcMs - EPOCH_2026_UTC) / 3600000;
+            const override = state.autoCoeff ? null : state.coeff;
+
+            // Pré-échantillonnage fin (toutes les 7.5 min) du signal harmonique pour interpoler l'avance de phase locale
+            const fineSamples = new Array(200);
+            for (let k = 0; k < 200; k++) {
+                const hRel = -1.0 + k * 0.125; // de -1h à +23.875h
+                fineSamples[k] = evaluateTideAtHour(baseH + hRel, override);
+            }
+
+            const getShiftedSignal = (hourOfDay, leadHours) => {
+                const targetH = hourOfDay + leadHours;
+                const pos = Math.max(0, Math.min(198.999, (targetH + 1.0) / 0.125));
+                const k0 = Math.floor(pos);
+                const frac = pos - k0;
+                const a = fineSamples[k0];
+                const b = fineSamples[k0 + 1];
+                return {
+                    flowSignal: a.flowSignal * (1 - frac) + b.flowSignal * frac,
+                    quadSignal: a.quadSignal * (1 - frac) + b.quadSignal * frac
+                };
+            };
+
             const totalCells = NX * NY;
             for (let s = 0; s < NSTEPS; s++) {
-                const { flowSignal, quadSignal } = state.dailyTide.steps[s];
+                const hourOfDay = s * 0.5;
+                const offshoreSig = state.dailyTide.steps[s];
                 const uArr = uField[s];
                 const vArr = vField[s];
                 const cArr = counterScoreField[s];
 
-                // Transition douce entre le modèle de Flot (flowSignal > 0) et le modèle de Jusant (flowSignal < 0)
-                const wFlood = Math.max(0, flowSignal);
-                const wEbb = Math.max(0, -flowSignal);
-
                 // Direction de référence du flux général au large
-                const refU = flowSignal >= 0 ? 1.45 : -1.55;
-                const refV = flowSignal >= 0 ? 1.85 : -1.75;
+                const refU = offshoreSig.flowSignal >= 0 ? 1.45 : -1.55;
+                const refV = offshoreSig.flowSignal >= 0 ? 1.85 : -1.75;
                 const refNorm = Math.hypot(refU, refV) || 1;
 
                 for (let idx = 0; idx < totalCells; idx++) {
@@ -1404,13 +1445,18 @@
                         vArr[idx] = 0;
                         cArr[idx] = 0;
                     } else {
-                        const u = floodU[idx] * wFlood + ebbU[idx] * wEbb + quadU[idx] * quadSignal;
-                        const v = floodV[idx] * wFlood + ebbV[idx] * wEbb + quadV[idx] * quadSignal;
+                        const lead = phaseLeadGrid[idx];
+                        const sig = lead > 0.01 ? getShiftedSignal(hourOfDay, lead) : offshoreSig;
+                        const wFlood = Math.max(0, sig.flowSignal);
+                        const wEbb = Math.max(0, -sig.flowSignal);
+
+                        const u = floodU[idx] * wFlood + ebbU[idx] * wEbb + quadU[idx] * sig.quadSignal;
+                        const v = floodV[idx] * wFlood + ebbV[idx] * wEbb + quadV[idx] * sig.quadSignal;
                         uArr[idx] = u;
                         vArr[idx] = v;
 
                         const spd = Math.hypot(u, v);
-                        if (spd > 0.18 && Math.abs(flowSignal) > 0.22) {
+                        if (spd > 0.18 && Math.abs(offshoreSig.flowSignal) > 0.22) {
                             // Produit scalaire normalisé avec le flux principal du large
                             const align = (u * refU + v * refV) / (spd * refNorm);
                             cArr[idx] = align; // < -0.15 => contre-courant franc
@@ -2029,21 +2075,21 @@
             document.getElementById("time-slider").value = state.timeStep;
 
             const hNow = state.dailyTide.steps[state.timeStep].height;
-            const hNext = state.dailyTide.steps[Math.min(47, state.timeStep + 1)].height;
-            const dh = hNext - hNow;
+            const flowNow = state.dailyTide.steps[state.timeStep].flowSignal;
 
             document.getElementById("tide-height-val").textContent = hNow.toFixed(2) + " m";
             const badge = document.getElementById("tide-state-badge");
-            if (Math.abs(dh) < 0.06) {
-                badge.textContent = hNow > 4.65 ? "ÉTALE PM" : "ÉTALE BM";
+            // Badge synchronisé sur le courant réel SHOM (et non sur la montée/descente d'eau)
+            if (Math.abs(flowNow) < 0.14) {
+                badge.textContent = "ÉTALE / RENVERSE";
                 badge.style.background = "rgba(251, 191, 36, 0.2)";
                 badge.style.color = "var(--accent-amber)";
-            } else if (dh > 0) {
-                badge.textContent = "FLOT";
+            } else if (flowNow > 0) {
+                badge.textContent = "COURANT FLOT";
                 badge.style.background = "rgba(16, 185, 129, 0.2)";
                 badge.style.color = "var(--accent-emerald)";
             } else {
-                badge.textContent = "JUSANT";
+                badge.textContent = "COURANT JUSANT";
                 badge.style.background = "rgba(56, 189, 248, 0.2)";
                 badge.style.color = "var(--accent-sky)";
             }
