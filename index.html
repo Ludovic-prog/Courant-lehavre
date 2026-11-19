@@ -404,7 +404,7 @@
         .legend-bar {
             height: 8px;
             border-radius: 4px;
-            background: linear-gradient(90deg, #1d4ed8 0%, #06b6d4 28%, #10b981 52%, #facc15 76%, #ef4444 100%);
+            background: linear-gradient(90deg, #3b82f6 0%, #22d3ee 28%, #10b981 52%, #facc15 76%, #ef4444 100%);
             margin-bottom: 4px;
         }
 
@@ -813,42 +813,65 @@
 
     try {
         /* =====================================================================
-           1. CONSTANTES GÉOGRAPHIQUES & TRAIT DE CÔTE ULTRA-DÉTAILLÉ (BAIE DU HAVRE)
+           1. DOMAINE GÉOGRAPHIQUE ZOOMÉ : BAIE DU HAVRE, PETITE RADE & ESTUAIRE
+              (Du Cap d'Antifer au Nord à Trouville/Deauville au Sud)
            ===================================================================== */
         const BOUNDS = {
-            minLon: -0.14,
-            maxLon: 0.30,
-            minLat: 49.36,
-            maxLat: 49.68
+            minLon: -0.18,
+            maxLon: 0.31,
+            minLat: 49.355,
+            maxLat: 49.685
         };
-        const COS_REF_LAT = Math.cos(49.51 * Math.PI / 180);
+        const REF_LAT = 49.50;
+        const COS_REF_LAT = Math.cos(REF_LAT * Math.PI / 180);
 
-        // Trait de côte haute résolution : Étretat/Antifer -> Cap de la Hève -> Ste-Adresse ->
-        // Digue Nord & Avant-port -> Port 2000 -> Estuaire -> Honfleur -> Villerville -> Deauville
+        // Trait de côte haute fidélité calibré sur la vue satellite réelle du Havre :
+        // Cap d'Antifer -> Cap de la Hève -> Anse concave Plage du Havre / Ste-Adresse ->
+        // Port de Plaisance & Digue Nord -> Passe Principale (orientée NW) ->
+        // Longue Digue Sud & Terre-plein réservoirs -> Bassin Port 2000 -> Estuaire -> Côte Fleurie
         const COASTLINE_POLY = [
             // Fermeture terrestre Est & Sud-Est
             [0.32, 49.69], [0.32, 49.35], [-0.02, 49.35],
-            // Côte Fleurie : Deauville / Trouville / Hennequeville / Villerville / Pennedepie / Honfleur
-            [0.068, 49.362], [0.085, 49.376], [0.105, 49.388], [0.128, 49.399],
-            [0.155, 49.408], [0.188, 49.416], [0.222, 49.422], [0.245, 49.425],
-            [0.305, 49.431],
-            // Rive Nord de l'estuaire (Tancarville / Oudalle / Digue basse Nord / Canal de Tancarville)
-            [0.305, 49.446], [0.235, 49.452], [0.185, 49.456], [0.148, 49.460],
-            // Grande digue extérieure de Port 2000 (avancée en mer créant un décrochage majeur)
-            [0.145, 49.464], [0.118, 49.463], [0.092, 49.466], [0.083, 49.473],
-            [0.087, 49.479], [0.106, 49.479],
-            // Passe d'entrée du port du Havre & Digue Sud / Digue Nord (Musoir Nord)
-            [0.106, 49.483], [0.091, 49.484], [0.086, 49.487], [0.095, 49.490],
-            [0.102, 49.491],
-            // Plage du Havre & Anse de Sainte-Adresse (épis et courbe abritée)
-            [0.096, 49.497], [0.087, 49.503], [0.077, 49.508], [0.068, 49.511],
-            // Cap de la Hève (avancée rocheuse marquée)
-            [0.060, 49.514], [0.059, 49.521], [0.064, 49.528],
-            // Falaises du Pays de Caux : Bléville, Octeville-sur-Mer, Cauville, St-Jouin-Bruneval
-            [0.072, 49.542], [0.082, 49.558], [0.094, 49.576], [0.108, 49.596],
-            [0.124, 49.618], [0.138, 49.638], [0.148, 49.655],
-            // Cap d'Antifer & Terminal pétrolier d'Antifer
-            [0.144, 49.666], [0.156, 49.675], [0.168, 49.685]
+            // Deauville / Embouchure de la Touques / Trouville
+            [0.068, 49.360], [0.073, 49.366], [0.076, 49.371], [0.077, 49.365], [0.081, 49.367],
+            // Côte Fleurie : Hennequeville, Villerville, Cricquebœuf, Pennedepie
+            [0.088, 49.376], [0.098, 49.385], [0.111, 49.393], [0.125, 49.401],
+            [0.140, 49.406], [0.158, 49.410], [0.178, 49.414], [0.198, 49.417],
+            // Honfleur (avant-port & jetée Est)
+            [0.218, 49.420], [0.229, 49.424], [0.234, 49.421], [0.242, 49.423],
+            // Rive Sud estuaire vers Pont de Normandie & Berville-sur-Mer
+            [0.265, 49.427], [0.288, 49.431], [0.305, 49.433],
+            // Rive Nord de l'estuaire (Tancarville / Oudalle / Digue basse Nord)
+            [0.305, 49.445], [0.272, 49.448], [0.238, 49.451], [0.205, 49.454],
+            [0.176, 49.457], [0.160, 49.459],
+            // Port 2000 : Digue Sud extérieure en arc, musoir Ouest, chenal d'accès Sud et bassin intérieur
+            [0.146, 49.456], [0.128, 49.455], [0.110, 49.456], [0.096, 49.458],
+            [0.092, 49.462], [0.096, 49.464], [0.106, 49.461], [0.124, 49.459],
+            [0.144, 49.460], [0.152, 49.464], [0.148, 49.468], [0.126, 49.467],
+            [0.106, 49.468],
+            // Longue Digue Sud de l'Avant-Port (partant vers le NW jusqu'au musoir de la passe)
+            [0.098, 49.473], [0.092, 49.478], [0.088, 49.483],
+            // Retour intérieur de la Digue Sud -> Terminal Croisière -> Avant-port
+            [0.090, 49.483], [0.094, 49.478], [0.101, 49.474], [0.114, 49.474],
+            [0.122, 49.478], [0.112, 49.481], [0.102, 49.484],
+            // Quai du MuMa & Entrée de l'Anse de Joinville (Port de Plaisance)
+            [0.097, 49.484], [0.097, 49.486], [0.095, 49.487], [0.096, 49.489],
+            [0.092, 49.489], [0.091, 49.486],
+            // Jetée de la Digue Nord (orientée SSW jusqu'au Phare de la Digue Nord)
+            [0.089, 49.485], [0.090, 49.485], [0.092, 49.488],
+            // Grande courbe concave de la Plage du Havre & Sainte-Adresse (élargie au Sud)
+            [0.092, 49.493], [0.091, 49.498], [0.089, 49.503], [0.084, 49.507],
+            [0.076, 49.510], [0.068, 49.512], [0.063, 49.513],
+            // Cap de la Hève (avancée rocheuse marquée au Phare de la Hève)
+            [0.058, 49.515], [0.057, 49.519], [0.059, 49.524], [0.063, 49.528],
+            // Falaises du Pays de Caux : Bléville, Octeville-sur-Mer, Cauville, Heuqueville
+            [0.068, 49.536], [0.074, 49.546], [0.080, 49.557], [0.087, 49.569],
+            [0.095, 49.582], [0.104, 49.596], [0.113, 49.610], [0.122, 49.624],
+            // Saint-Jouin-Bruneval & Terminal Pétrolier d'Antifer
+            [0.130, 49.636], [0.135, 49.644], [0.132, 49.649], [0.137, 49.653],
+            [0.143, 49.659],
+            // Cap d'Antifer (pointe avancée) & Falaises vers Étretat
+            [0.143, 49.666], [0.148, 49.671], [0.157, 49.676], [0.168, 49.683]
         ];
 
         // Digues submersibles de l'estuaire (guide du chenal de Rouen, visibles sur carte marine)
@@ -857,22 +880,33 @@
             [[0.095, 49.443], [0.165, 49.441], [0.245, 49.437]]  // Digue basse Sud
         ];
 
+        // Polygone de la Plage du Havre (sable jaune élargi vers la Digue Nord / Anse de Joinville)
+        const BEACH_SAND_POLY = [
+            [0.065, 49.512], [0.075, 49.510], [0.084, 49.507], [0.089, 49.503],
+            [0.091, 49.498], [0.092, 49.493], [0.092, 49.488],
+            [0.094, 49.488], [0.094, 49.493], [0.093, 49.498],
+            [0.090, 49.503], [0.085, 49.508], [0.076, 49.511], [0.067, 49.513]
+        ];
+
         // Amers, Ports, Caps et Bouées clés de la Baie du Havre
         const LANDMARKS = [
             { name: "Cap d'Antifer", lon: 0.158, lat: 49.676, type: "cap" },
             { name: "St-Jouin-Bruneval", lon: 0.128, lat: 49.642, type: "port" },
             { name: "Octeville-s/-Mer", lon: 0.085, lat: 49.560, type: "cote" },
-            { name: "Cap de la Hève", lon: 0.060, lat: 49.516, type: "cap" },
-            { name: "Ste-Adresse", lon: 0.078, lat: 49.506, type: "port" },
-            { name: "PETITE RADE", lon: 0.056, lat: 49.496, type: "zone" },
-            { name: "Digue Nord", lon: 0.087, lat: 49.486, type: "structure" },
+            { name: "Cap de la Hève", lon: 0.058, lat: 49.516, type: "cap" },
+            { name: "Ste-Adresse", lon: 0.076, lat: 49.508, type: "port" },
+            { name: "Plage du Havre", lon: 0.091, lat: 49.497, type: "port" },
+            { name: "PETITE RADE", lon: 0.062, lat: 49.498, type: "zone" },
+            { name: "Phare Digue Nord", lon: 0.089, lat: 49.485, type: "structure" },
+            { name: "Anse de Joinville", lon: 0.094, lat: 49.488, type: "structure" },
+            { name: "Digue Sud", lon: 0.088, lat: 49.481, type: "structure" },
             { name: "LE HAVRE", lon: 0.114, lat: 49.493, type: "major" },
-            { name: "Port 2000", lon: 0.116, lat: 49.470, type: "major" },
+            { name: "Port 2000", lon: 0.124, lat: 49.463, type: "major" },
             { name: "Bouée LH1", lon: -0.055, lat: 49.494, type: "buoy" },
             { name: "Bouée LH2", lon: -0.052, lat: 49.482, type: "buoy" },
             { name: "GRANDE RADE", lon: 0.015, lat: 49.485, type: "zone" },
-            { name: "Chenal Rouen (-15m)", lon: 0.035, lat: 49.453, type: "channel" },
-            { name: "Banc du Ratier", lon: 0.075, lat: 49.432, type: "bank" },
+            { name: "Chenal Rouen (-15m)", lon: 0.035, lat: 49.448, type: "channel" },
+            { name: "Banc du Ratier", lon: 0.075, lat: 49.430, type: "bank" },
             { name: "Honfleur", lon: 0.232, lat: 49.420, type: "port" },
             { name: "Villerville", lon: 0.128, lat: 49.401, type: "port" },
             { name: "Trouville / Deauville", lon: 0.076, lat: 49.365, type: "port" }
@@ -1207,10 +1241,10 @@
         // Avance de phase spatiale locale (en heures : +0.65h dans l'estuaire / Petite Rade vs 0h au large)
         const phaseLeadGrid = new Float32Array(NX * NY);
 
-        // Indicateur de contre-courant (-1 = contre-courant opposé au flux principal, +1 = flux direct)
-        const counterScoreField = Array.from({ length: NSTEPS }, () => new Float32Array(NX * NY));
+        // Champs horaires pré-calculés pour les 48 pas de temps (30 min)
         const uField = Array.from({ length: NSTEPS }, () => new Float32Array(NX * NY));
         const vField = Array.from({ length: NSTEPS }, () => new Float32Array(NX * NY));
+        const counterScoreField = Array.from({ length: NSTEPS }, () => new Float32Array(NX * NY));
 
         function initHighResHydrodynamics() {
             const dLon = (BOUNDS.maxLon - BOUNDS.minLon) / (NX - 1);
@@ -1221,11 +1255,10 @@
                 for (let i = 0; i < NX; i++) {
                     const lon = BOUNDS.minLon + i * dLon;
                     const idx = j * NX + i;
-                    const onLand = isPointOnLand(lon, lat);
-                    landMask[idx] = onLand ? 1 : 0;
-                    if (onLand) {
+
+                    if (isPointOnLand(lon, lat)) {
+                        landMask[idx] = 1;
                         bathyGrid[idx] = 0;
-                        phaseLeadGrid[idx] = 0;
                         continue;
                     }
 
@@ -1249,27 +1282,26 @@
                     fU += 1.65 * wEstFeed;
                     fV -= 1.35 * wEstFeed;
 
-                    // 2. Accélération Venturi au droit de Port 2000 & Cap de la Hève (jusqu'à ~3.6-4.0 nds en VE)
-                    const dMusoirP2000 = Math.hypot((lon - 0.072) * COS_REF_LAT, lat - 49.474);
+                    // 2. Accélération Venturi au droit de la Digue Sud / Port 2000 & Cap de la Hève
+                    const dMusoirP2000 = Math.hypot((lon - 0.074) * COS_REF_LAT, lat - 49.476);
                     const jetP2000 = 1.55 * Math.exp(-(dMusoirP2000 * dMusoirP2000) / 0.00055);
                     fU += 0.65 * jetP2000;
                     fV += 1.45 * jetP2000;
 
-                    const dHeve = Math.hypot((lon - 0.046) * COS_REF_LAT, lat - 49.518);
+                    const dHeve = Math.hypot((lon - 0.045) * COS_REF_LAT, lat - 49.518);
                     const jetHeve = 1.40 * Math.exp(-(dHeve * dHeve) / 0.00065);
                     fU += 0.55 * jetHeve;
                     fV += 1.35 * jetHeve;
 
-                    // 3. CONTRE-COURANT DE SAINTE-ADRESSE / PETITE RADE AU FLOT :
-                    // Abrité entre la digue Nord (49.486°N) et le Cap de la Hève (49.515°N),
-                    // le jet longeant Port 2000 entraîne un tourbillon anticyclonique (horaire)
-                    // générant un contre-courant portant au Sud / Sud-Ouest le long de Sainte-Adresse !
-                    const dSteAdrFlot = Math.hypot((lon - 0.073) * COS_REF_LAT, lat - 49.499);
+                    // 3. CONTRE-COURANT DE SAINTE-ADRESSE / PLAGE DU HAVRE AU FLOT :
+                    // Abrité dans l'anse concave entre la Digue Nord (49.487°N) et le Cap de la Hève (49.515°N),
+                    // le jet longeant la Digue Sud entraîne un tourbillon anticyclonique (horaire)
+                    // générant un contre-courant portant au Sud / Sud-Est le long de Sainte-Adresse et de la plage !
+                    const dSteAdrFlot = Math.hypot((lon - 0.072) * COS_REF_LAT, lat - 49.500);
                     if (dSteAdrFlot < 0.032) {
                         const wSA = Math.exp(-(dSteAdrFlot * dSteAdrFlot) / 0.00024);
-                        // Remplacement du flux principal par le tourbillon de recirculation
-                        fU = fU * (1 - 0.92 * wSA) + ((lat - 49.499) * 58.0) * wSA;
-                        fV = fV * (1 - 0.92 * wSA) + (-(lon - 0.071) * COS_REF_LAT * 75.0 - 0.55) * wSA;
+                        fU = fU * (1 - 0.92 * wSA) + ((lat - 49.500) * 58.0) * wSA;
+                        fV = fV * (1 - 0.92 * wSA) + (-(lon - 0.070) * COS_REF_LAT * 75.0 - 0.55) * wSA;
                     }
 
                     // 4. Sillage & contre-courant dans l'anse au Nord du Cap de la Hève (Octeville)
@@ -1555,8 +1587,8 @@
         }
 
         function speedToColor(knots, alpha = 1) {
-            if (knots < 0.65) return `rgba(29, 78, 216, ${alpha})`;    // Bleu profond
-            if (knots < 1.35) return `rgba(6, 182, 212, ${alpha})`;    // Cyan
+            if (knots < 0.65) return `rgba(59, 130, 246, ${alpha})`;   // Bleu électrique lumineux (haute visibilité)
+            if (knots < 1.35) return `rgba(34, 211, 238, ${alpha})`;   // Cyan vif
             if (knots < 2.20) return `rgba(16, 185, 129, ${alpha})`;   // Émeraude
             if (knots < 3.10) return `rgba(250, 204, 21, ${alpha})`;   // Jaune ambré
             return `rgba(239, 68, 68, ${alpha})`;                      // Rouge vif (>3.1 nds)
@@ -1599,9 +1631,10 @@
         }
 
         function renderBackgroundMap() {
+            // Fond marin ardoise / anthracite très sombre pour un contraste maximal avec les flèches bleues et cyan
             const bgGrad = ctx.createLinearGradient(0, 0, 0, viewH);
-            bgGrad.addColorStop(0, "#06162b");
-            bgGrad.addColorStop(1, "#0a2240");
+            bgGrad.addColorStop(0, "#070b12");
+            bgGrad.addColorStop(1, "#0c131f");
             ctx.fillStyle = bgGrad;
             ctx.fillRect(0, 0, viewW, viewH);
 
@@ -1659,16 +1692,16 @@
                         if (state.layers.bathy) {
                             const d = bathyGrid[idx];
                             if (d < 3.0) {
-                                // Hauts-fonds découvrants / Banc du Ratier
-                                ctx.fillStyle = "rgba(56, 189, 248, 0.26)";
+                                // Hauts-fonds découvrants / Banc du Ratier (teinte sable/ardoise claire neutre)
+                                ctx.fillStyle = "rgba(148, 163, 184, 0.16)";
                             } else if (d < 9.5) {
-                                // Petite Rade & estrans
-                                ctx.fillStyle = "rgba(14, 165, 233, 0.14)";
+                                // Petite Rade & estrans (gris-ardoise léger, sans saturation bleue)
+                                ctx.fillStyle = "rgba(100, 116, 139, 0.09)";
                             } else if (d > 14.0) {
                                 // Chenal dragué profond (-15m)
-                                ctx.fillStyle = "rgba(2, 6, 23, 0.34)";
+                                ctx.fillStyle = "rgba(2, 4, 10, 0.48)";
                             } else {
-                                ctx.fillStyle = "rgba(14, 116, 144, 0.06)";
+                                ctx.fillStyle = "rgba(30, 41, 59, 0.06)";
                             }
                             ctx.fillRect(scr.x, scr.y - cellH, cellW, cellH);
                         }
@@ -1705,18 +1738,46 @@
             // Digues submersibles de l'estuaire (en pointillés)
             ctx.save();
             ctx.setLineDash([5, 4]);
-            ctx.strokeStyle = "rgba(148, 163, 184, 0.55)";
+            ctx.strokeStyle = "rgba(148, 163, 184, 0.45)";
             ctx.lineWidth = 1.4;
             for (const dike of SUBMERGED_DIKES) {
                 ctx.beginPath();
-                dike.forEach((pt, idx) => {
-                    const p = geoToScreen(pt[0], pt[1]);
-                    if (idx === 0) ctx.moveTo(p.x, p.y);
+                for (let i = 0; i < dike.length; i++) {
+                    const p = geoToScreen(dike[i][0], dike[i][1]);
+                    if (i === 0) ctx.moveTo(p.x, p.y);
                     else ctx.lineTo(p.x, p.y);
-                });
+                }
                 ctx.stroke();
             }
             ctx.restore();
+
+            // Polygone terrestre haute précision avec relief côtier
+            ctx.beginPath();
+            for (let i = 0; i < COASTLINE_POLY.length; i++) {
+                const p = geoToScreen(COASTLINE_POLY[i][0], COASTLINE_POLY[i][1]);
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            }
+            ctx.closePath();
+            ctx.fillStyle = "#161d29";
+            ctx.fill();
+            ctx.lineWidth = 1.6;
+            ctx.strokeStyle = "#cbd5e1";
+            ctx.stroke();
+
+            // Plage du Havre en jaune sable (fidèle à la vue satellite)
+            ctx.beginPath();
+            for (let i = 0; i < BEACH_SAND_POLY.length; i++) {
+                const p = geoToScreen(BEACH_SAND_POLY[i][0], BEACH_SAND_POLY[i][1]);
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            }
+            ctx.closePath();
+            ctx.fillStyle = "#d4b475";
+            ctx.fill();
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = "#eab308";
+            ctx.stroke();
 
             // Rendu de la position GPS en temps réel si active et fixée
             if (state.gps.active && state.gps.hasFix) {
@@ -1762,20 +1823,6 @@
                 ctx.fillText(`📍 Ma Position GPS${speedTxt}`, gp.x, gp.y - 20);
                 ctx.textAlign = "left";
             }
-
-            // Polygone terrestre haute précision
-            ctx.beginPath();
-            for (let i = 0; i < COASTLINE_POLY.length; i++) {
-                const p = geoToScreen(COASTLINE_POLY[i][0], COASTLINE_POLY[i][1]);
-                if (i === 0) ctx.moveTo(p.x, p.y);
-                else ctx.lineTo(p.x, p.y);
-            }
-            ctx.closePath();
-            ctx.fillStyle = "#0d1624";
-            ctx.fill();
-            ctx.lineWidth = 1.8;
-            ctx.strokeStyle = "rgba(56, 189, 248, 0.72)";
-            ctx.stroke();
 
             // Repères nautiques, bouées et zones tactiques
             if (state.layers.labels) {
