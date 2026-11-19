@@ -884,26 +884,30 @@
         const BEACH_SAND_POLY = [
             [0.065, 49.512], [0.075, 49.510], [0.084, 49.507], [0.089, 49.503],
             [0.091, 49.498], [0.092, 49.493], [0.092, 49.488],
-            [0.094, 49.488], [0.094, 49.493], [0.093, 49.498],
-            [0.090, 49.503], [0.085, 49.508], [0.076, 49.511], [0.067, 49.513]
+            [0.089, 49.485], [0.090, 49.490], [0.089, 49.496],
+            [0.086, 49.502], [0.080, 49.507], [0.072, 49.510]
         ];
 
-        // Amers, Ports, Caps et Bouées clés de la Baie du Havre
+        // Amers, Ports, Caps et Bouées clés de la Baie du Havre (WGS 84 exacts)
         const LANDMARKS = [
             { name: "Cap d'Antifer", lon: 0.158, lat: 49.676, type: "cap" },
             { name: "St-Jouin-Bruneval", lon: 0.128, lat: 49.642, type: "port" },
             { name: "Octeville-s/-Mer", lon: 0.085, lat: 49.560, type: "cote" },
-            { name: "Cap de la Hève", lon: 0.058, lat: 49.516, type: "cap" },
-            { name: "Ste-Adresse", lon: 0.076, lat: 49.508, type: "port" },
-            { name: "Plage du Havre", lon: 0.091, lat: 49.497, type: "port" },
+            { name: "Cap de la Hève", lon: 0.0683, lat: 49.5075, type: "cap" },
+            { name: "Ste-Adresse", lon: 0.078, lat: 49.504, type: "port" },
+            { name: "Plage Nord", lon: 0.0937, lat: 49.4941, type: "port" },
             { name: "PETITE RADE", lon: 0.062, lat: 49.498, type: "zone" },
-            { name: "Phare Digue Nord", lon: 0.089, lat: 49.485, type: "structure" },
-            { name: "Anse de Joinville", lon: 0.094, lat: 49.488, type: "structure" },
-            { name: "Digue Sud", lon: 0.088, lat: 49.481, type: "structure" },
+            { name: "Digue Nord", lon: 0.0905, lat: 49.4867, type: "structure" },
+            { name: "Anse de Joinville", lon: 0.095, lat: 49.4885, type: "structure" },
+            { name: "Digue Sud", lon: 0.0894, lat: 49.4844, type: "structure" },
             { name: "LE HAVRE", lon: 0.114, lat: 49.493, type: "major" },
             { name: "Port 2000", lon: 0.124, lat: 49.463, type: "major" },
-            { name: "Bouée LH1", lon: -0.055, lat: 49.494, type: "buoy" },
-            { name: "Bouée LH2", lon: -0.052, lat: 49.482, type: "buoy" },
+            // Bouées de chenal du Havre (IALA Région A : Bâbord = Rouge, Tribord = Vert)
+            { name: "LH6", lon: -0.04025, lat: 49.51283, type: "buoy_port" },
+            { name: "LH5", lon: -0.04175, lat: 49.50958, type: "buoy_stbd" },
+            { name: "LH14", lon: 0.05633, lat: 49.49383, type: "buoy_port" },
+            { name: "LH13", lon: 0.06033, lat: 49.48867, type: "buoy_stbd" },
+            { name: "LH16", lon: 0.07108, lat: 49.49117, type: "buoy_port" },
             { name: "GRANDE RADE", lon: 0.015, lat: 49.485, type: "zone" },
             { name: "Chenal Rouen (-15m)", lon: 0.035, lat: 49.448, type: "channel" },
             { name: "Banc du Ratier", lon: 0.075, lat: 49.430, type: "bank" },
@@ -1837,19 +1841,24 @@
                         ctx.textAlign = "center";
                         ctx.fillText(lm.name, p.x, p.y);
                         ctx.textAlign = "left";
-                    } else if (lm.type === "buoy") {
-                        // Symbole losange pour les bouées d'atterrissage LH1 / LH2
+                    } else if (lm.type === "buoy_port" || lm.type === "buoy_stbd") {
+                        const isPort = lm.type === "buoy_port";
+                        // Bouée latérale bâbord (Rouge) / tribord (Vert) selon balisage IALA Région A
                         ctx.beginPath();
-                        ctx.moveTo(p.x, p.y - 4.5);
-                        ctx.lineTo(p.x + 4, p.y);
-                        ctx.lineTo(p.x, p.y + 4.5);
-                        ctx.lineTo(p.x - 4, p.y);
+                        ctx.moveTo(p.x, p.y - 5.5);
+                        ctx.lineTo(p.x + 5, p.y);
+                        ctx.lineTo(p.x, p.y + 5.5);
+                        ctx.lineTo(p.x - 5, p.y);
                         ctx.closePath();
-                        ctx.fillStyle = "#f43f5e";
+                        ctx.fillStyle = isPort ? "#ef4444" : "#22c55e";
                         ctx.fill();
+                        ctx.lineWidth = 1.2;
+                        ctx.strokeStyle = "#ffffff";
+                        ctx.stroke();
+
                         ctx.font = "bold 9.5px " + getComputedStyle(document.body).fontFamily;
-                        ctx.fillStyle = "#fda4af";
-                        ctx.fillText(lm.name, p.x + 6, p.y);
+                        ctx.fillStyle = isPort ? "#fca5a5" : "#86efac";
+                        ctx.fillText(lm.name, p.x + 7, isPort ? p.y - 3 : p.y + 4);
                     } else {
                         ctx.beginPath();
                         ctx.arc(p.x, p.y, lm.type === "major" ? 3.8 : 2.5, 0, Math.PI * 2);
