@@ -1,0 +1,2634 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#060d18">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Courants LH">
+    <link id="pwa-manifest-link" rel="manifest" href="">
+    <title>Baie du Havre & Estuaire — Courants Ultra-Haute Résolution (30 min • SHOM)</title>
+    <style>
+        /* =====================================================================
+           STYLES AUTONOMES (ZÉRO DÉPENDANCE EXTERNE) — THÈME ROUTAGE MARITIME
+           ===================================================================== */
+        :root {
+            --bg-deep: #060d18;
+            --bg-panel: rgba(9, 19, 34, 0.90);
+            --bg-card: rgba(15, 29, 50, 0.85);
+            --border-glass: rgba(56, 189, 248, 0.24);
+            --border-subtle: rgba(148, 163, 184, 0.16);
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent-sky: #38bdf8;
+            --accent-cyan: #22d3ee;
+            --accent-emerald: #34d399;
+            --accent-amber: #fbbf24;
+            --accent-rose: #fb7185;
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            font-size: 13px;
+            line-height: 1.35;
+            user-select: none;
+        }
+
+        #app-root {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 45%, #0c213d 0%, #050b14 100%);
+        }
+
+        /* Canvas principal plein écran */
+        #map-container {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            cursor: crosshair;
+        }
+
+        #map-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        /* Panneaux glassmorphism */
+        .panel {
+            background: var(--bg-panel);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+        }
+
+        .mono {
+            font-family: var(--font-mono);
+        }
+
+        /* Barre supérieure */
+        #top-bar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 20;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        #top-bar > * {
+            pointer-events: auto;
+        }
+
+        .brand-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 12px;
+        }
+
+        .brand-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: rgba(56, 189, 248, 0.16);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-sky);
+            flex-shrink: 0;
+        }
+
+        .brand-title {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge-pill {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 6px;
+            background: rgba(16, 185, 129, 0.16);
+            color: var(--accent-emerald);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+        }
+
+        .brand-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .top-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .date-box, .coeff-box, .zoom-box {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+        }
+
+        /* Boutons génériques */
+        button {
+            font-family: inherit;
+            cursor: pointer;
+            border: 1px solid var(--border-subtle);
+            background: rgba(30, 41, 59, 0.75);
+            color: var(--text-main);
+            border-radius: 8px;
+            padding: 5px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        button:hover {
+            background: rgba(51, 65, 85, 0.95);
+            border-color: rgba(56, 189, 248, 0.45);
+        }
+
+        button.active {
+            background: var(--accent-sky);
+            color: #04101e;
+            border-color: var(--accent-sky);
+            font-weight: 700;
+        }
+
+        button.preset-amber {
+            border-color: rgba(251, 191, 36, 0.35);
+            color: #fde68a;
+        }
+
+        input[type="date"] {
+            color-scheme: dark;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            border-radius: 8px;
+            color: #fff;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            padding: 4px 8px;
+            outline: none;
+        }
+
+        input[type="date"]:focus {
+            border-color: var(--accent-sky);
+        }
+
+        /* Panneau latéral gauche (repliable) */
+        #side-panel-wrapper {
+            position: absolute;
+            top: 66px;
+            left: 10px;
+            z-index: 15;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 278px;
+            max-width: calc(100vw - 20px);
+            max-height: calc(100vh - 188px);
+            transition: transform 0.25s ease;
+        }
+
+        #side-panel-wrapper.collapsed {
+            transform: translateX(-292px);
+        }
+
+        #side-scroll {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            padding-right: 2px;
+        }
+
+        #side-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        #side-scroll::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 4px;
+        }
+
+        #btn-toggle-sidebar {
+            position: absolute;
+            top: 66px;
+            left: 10px;
+            z-index: 16;
+            padding: 6px 10px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            display: none;
+        }
+
+        #side-panel-wrapper.collapsed + #btn-toggle-sidebar {
+            display: inline-flex;
+        }
+
+        .card {
+            padding: 10px 12px;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 6px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--accent-sky);
+        }
+
+        .tides-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .tide-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 5px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .tide-item:hover {
+            border-color: var(--accent-sky);
+            background: rgba(56, 189, 248, 0.14);
+        }
+
+        .tide-item.pm {
+            border-left: 3px solid var(--accent-sky);
+        }
+
+        .tide-item.bm {
+            border-left: 3px solid var(--text-muted);
+        }
+
+        .sun-row {
+            margin-top: 7px;
+            padding-top: 6px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            font-size: 10.5px;
+            color: var(--text-muted);
+        }
+
+        /* Inspecteur tactique */
+        .insp-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .metric-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 7px 9px;
+        }
+
+        .metric-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+
+        .metric-val {
+            font-size: 17px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .metric-sub {
+            font-size: 10.5px;
+            margin-top: 2px;
+        }
+
+        .insp-details {
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 7px 9px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 11px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .detail-row span:first-child {
+            color: var(--text-muted);
+        }
+
+        /* Couches et légende */
+        .layers-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            margin-bottom: 8px;
+        }
+
+        .layer-toggle {
+            justify-content: flex-start;
+            font-size: 11px;
+            padding: 5px 7px;
+        }
+
+        .layer-toggle.on {
+            background: rgba(56, 189, 248, 0.2);
+            border-color: rgba(56, 189, 248, 0.55);
+            color: #e0f2fe;
+        }
+
+        .legend-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #1d4ed8 0%, #06b6d4 28%, #10b981 52%, #facc15 76%, #ef4444 100%);
+            margin-bottom: 4px;
+        }
+
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        /* Barre temporelle inférieure & Marégramme */
+        #bottom-bar {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 20;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .playback-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        #btn-play {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--accent-sky);
+            color: #04101e;
+            border: none;
+        }
+
+        #btn-play:hover {
+            background: #7dd3fc;
+        }
+
+        .time-readout {
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid var(--border-subtle);
+            border-radius: 9px;
+            padding: 4px 10px;
+            text-align: center;
+            min-width: 112px;
+        }
+
+        #time-display {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--accent-sky);
+        }
+
+        #step-display {
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        .timeline-group {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .timeline-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 11px;
+        }
+
+        #tide-chart-wrap {
+            position: relative;
+            width: 100%;
+            height: 44px;
+            background: rgba(6, 14, 28, 0.85);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        #tide-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #time-slider {
+            width: 100%;
+            height: 6px;
+            accent-color: var(--accent-sky);
+            cursor: pointer;
+        }
+
+        /* Message d'erreur éventuel */
+        #error-banner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            background: #450a0a;
+            border: 1px solid #f87171;
+            color: #fecaca;
+            padding: 16px 20px;
+            border-radius: 12px;
+            max-width: 90vw;
+            display: none;
+        }
+
+        /* Adaptations Mobile / Tablette */
+        @media (max-width: 860px) {
+            .brand-sub, .hide-mobile {
+                display: none !important;
+            }
+            #top-bar {
+                top: 6px;
+                left: 6px;
+                right: 6px;
+                gap: 4px;
+            }
+            .brand-box {
+                padding: 5px 8px;
+            }
+            .date-box, .coeff-box, .zoom-box {
+                padding: 4px 6px;
+                gap: 4px;
+            }
+            button {
+                padding: 4px 6px;
+                font-size: 10.5px;
+            }
+            #side-panel-wrapper {
+                top: 86px;
+                left: 6px;
+                width: 268px;
+                max-height: calc(100vh - 205px);
+            }
+            #btn-toggle-sidebar {
+                top: 86px;
+                left: 6px;
+                padding: 6px 9px;
+                font-size: 11px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            }
+            #bottom-bar {
+                bottom: 6px;
+                left: 6px;
+                right: 6px;
+                flex-wrap: wrap;
+                gap: 6px;
+                padding: 6px 8px;
+            }
+            .playback-group {
+                width: 100%;
+                justify-content: space-between;
+            }
+            #tide-chart-wrap {
+                height: 32px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="app-root">
+    <!-- Zone Carte Interactive Plein Écran -->
+    <div id="map-container">
+        <canvas id="map-canvas"></canvas>
+    </div>
+
+    <!-- Barre Supérieure : Titre, Sélecteur de Date SHOM 2026-2027 & Coefficient -->
+    <header id="top-bar">
+        <div class="panel brand-box">
+            <div class="brand-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 12c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0"/>
+                    <path d="M2 17c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0"/>
+                    <path d="M2 7c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0"/>
+                </svg>
+            </div>
+            <div>
+                <div class="brand-title">
+                    <span>BAIE DU HAVRE</span>
+                    <span class="badge-pill mono">~160m • Δt 30m</span>
+                </div>
+                <div class="brand-sub">Contre-courants & Estuaire • Antifer → Deauville (SHOM 2026–2027)</div>
+            </div>
+        </div>
+
+        <div class="top-controls">
+            <!-- Sélecteur de date calendaire réel (Nov 2026 - Déc 2027) -->
+            <div class="panel date-box">
+                <button id="btn-prev-day" title="Jour précédent (-24h)">‹</button>
+                <input type="date" id="date-picker" min="2026-11-01" max="2027-12-31" value="2026-11-19" aria-label="Date de prédiction">
+                <button id="btn-today" title="Revenir au 19/11/2026">Auj.</button>
+                <button id="btn-next-day" title="Jour suivant (+24h)">›</button>
+                <button class="preset-date hide-mobile" data-date="2026-11-26" title="Grande Vive-Eau Nov. 2026">VE 98</button>
+                <button class="preset-date hide-mobile" data-date="2026-12-03" title="Morte-Eau Déc. 2026">ME 45</button>
+                <button class="preset-date preset-amber hide-mobile" data-date="2027-03-10" title="Grande Marée d'Équinoxe Mars 2027">Équinoxe 112</button>
+            </div>
+
+            <!-- Coefficient SHOM & Forçage Manuel -->
+            <div class="panel coeff-box">
+                <div style="margin-right: 4px;">
+                    <div style="font-size: 9.5px; color: var(--text-muted); text-transform: uppercase;">
+                        Coeff. <span id="coeff-mode-tag" style="color: var(--accent-emerald); font-weight:700;">SHOM</span>
+                    </div>
+                    <div style="display:flex; align-items:baseline; gap:5px;">
+                        <span id="coeff-val" class="mono" style="font-size:15px; font-weight:700; color:var(--accent-sky);">68</span>
+                        <span id="coeff-label" style="font-size:10.5px; color:#cbd5e1;">Moyenne</span>
+                    </div>
+                </div>
+                <button id="btn-coeff-auto" class="coeff-btn active" title="Coefficient astronomique réel">Auto</button>
+                <button class="coeff-btn mono" data-coeff="45" title="Forcer Morte-Eau 45">45</button>
+                <button class="coeff-btn mono" data-coeff="98" title="Forcer Vive-Eau 98">98</button>
+                <button class="coeff-btn mono" data-coeff="112" title="Forcer Grande Marée 112">112</button>
+            </div>
+
+            <!-- Contrôles Zoom & Recentrage Petite Rade -->
+            <div class="panel zoom-box">
+                <button id="btn-geo" title="Activer la géolocalisation GPS en temps réel">📍 Ma Position</button>
+                <button id="btn-wake" title="Empêcher la mise en veille de l'écran en navigation">☀ Écran actif</button>
+                <button id="btn-zoom-in" title="Zoomer">+</button>
+                <button id="btn-zoom-out" title="Dézoomer">−</button>
+                <button id="btn-reset-view" title="Centrer sur la Petite Rade / Le Havre">Petite Rade</button>
+                <button id="btn-full-bay" class="hide-mobile" title="Vue globale Antifer à Deauville">Vue Large</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Panneau Latéral Gauche : Marées du jour, Inspecteur & Couches -->
+    <aside id="side-panel-wrapper">
+        <div id="side-scroll">
+            <!-- Marées du jour (Le Havre) -->
+            <div class="panel card">
+                <div class="card-header">
+                    <span>Marées • Le Havre</span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span id="date-display-fr" class="mono" style="color:#e2e8f0; font-size:10.5px;">Jeu 19/11/26</span>
+                        <button id="btn-collapse-sidebar" title="Replier le panneau" style="padding:2px 6px; font-size:10px;">✕</button>
+                    </div>
+                </div>
+                <div id="daily-tides-list" class="tides-grid"></div>
+                <div class="sun-row">
+                    <span id="sun-display">☀ 08:14 • ☾ 17:12</span>
+                    <span id="tz-display" class="mono" style="color:var(--accent-sky);">CET (UTC+1)</span>
+                </div>
+            </div>
+
+            <!-- Inspecteur Hydrodynamique Temps Réel -->
+            <div class="panel card">
+                <div class="card-header">
+                    <span>Inspecteur Courant</span>
+                    <span id="insp-mode" class="mono" style="font-size:9.5px; padding:1px 5px; border-radius:4px; background:rgba(148,163,184,0.18); color:#cbd5e1;">SURVOL</span>
+                </div>
+                <div class="insp-metrics">
+                    <div class="metric-box">
+                        <div class="metric-label">Vitesse flux</div>
+                        <div class="metric-val mono"><span id="insp-knots">2.15</span> <span style="font-size:11px; color:var(--accent-sky);">nds</span></div>
+                        <div id="insp-ms" class="metric-sub mono" style="color:var(--text-muted);">1.11 m/s</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Porte au (Cap)</div>
+                        <div class="metric-val mono"><span id="insp-deg">104°</span> <span id="insp-card" style="font-size:11px; color:var(--accent-cyan);">ESE</span></div>
+                        <div id="insp-phase-txt" class="metric-sub" style="color:var(--accent-emerald); font-weight:600;">Flot établi</div>
+                    </div>
+                </div>
+                <div class="insp-details mono">
+                    <div class="detail-row">
+                        <span style="font-family:var(--font-sans);">Position GPS :</span>
+                        <span id="insp-coords">49°32.4'N 00°28.0'W</span>
+                    </div>
+                    <div class="detail-row">
+                        <span style="font-family:var(--font-sans);">Sonde (Carte + Eau) :</span>
+                        <span id="insp-depth" style="color:var(--accent-cyan);">26.5 m (31.8 m)</span>
+                    </div>
+                    <div class="detail-row">
+                        <span style="font-family:var(--font-sans);">Heure marée :</span>
+                        <span id="insp-rel-pm" style="color:var(--accent-amber);">PM - 01h30</span>
+                    </div>
+                    <div class="detail-row">
+                        <span style="font-family:var(--font-sans);">Régime :</span>
+                        <span id="insp-regime" style="font-family:var(--font-sans); font-weight:700; color:#34d399;">Flux principal</span>
+                    </div>
+                    <div class="detail-row">
+                        <span style="font-family:var(--font-sans);">Secteur :</span>
+                        <span id="insp-sector" style="font-family:var(--font-sans); color:#f8fafc;">Petite Rade</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Couches Cartographiques & Échelle -->
+            <div class="panel card">
+                <div class="card-header">
+                    <span>Couches & Résolution</span>
+                    <span class="mono" style="font-size:9.5px; color:var(--text-muted);">240×175 (~160m)</span>
+                </div>
+                <div class="layers-grid">
+                    <button class="layer-toggle on" data-layer="particles">● Particules</button>
+                    <button class="layer-toggle on" data-layer="vectors">➔ Vecteurs</button>
+                    <button class="layer-toggle on" data-layer="counter">↺ Contre-courants</button>
+                    <button class="layer-toggle on" data-layer="bathy">≈ Bathy & Sondes</button>
+                    <button class="layer-toggle on" data-layer="labels" style="grid-column: span 2;">⚑ Amers, Digues & Bouées</button>
+                </div>
+                <div class="legend-bar"></div>
+                <div class="legend-labels mono">
+                    <span>0 nd</span>
+                    <span>1.0</span>
+                    <span>2.0</span>
+                    <span>3.0</span>
+                    <span>4.2+ nds</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Bouton pour réouvrir le panneau s'il est replié -->
+    <button id="btn-toggle-sidebar" title="Afficher les marées et l'inspecteur">☰ Marées & Inspecteur</button>
+
+    <!-- Modale de saisie manuelle GPS (si bloqué par l'hébergeur / Google Sites) -->
+    <div id="manual-gps-modal" class="panel" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:90; width:300px; max-width:92vw; padding:14px;">
+        <div class="card-header" style="margin-bottom:8px;">
+            <span>Position GPS Manuelle</span>
+            <button id="btn-close-gps-modal" style="padding:2px 6px;">✕</button>
+        </div>
+        <p style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">
+            L'accès direct au capteur GPS est restreint par le cadre de la page (ex. Google Sites). Saisissez vos coordonnées (ex: <code>49.496</code> ou <code>49°29.8'N</code>) :
+        </p>
+        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
+            <div>
+                <label style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:2px;">Latitude (Nord)</label>
+                <input type="text" id="manual-lat" value="49.4960" style="width:100%; background:#0f172a; border:1px solid var(--border-glass); color:#fff; padding:5px 8px; border-radius:6px; font-family:var(--font-mono); font-size:12px;">
+            </div>
+            <div>
+                <label style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:2px;">Longitude (Est + / Ouest -)</label>
+                <input type="text" id="manual-lon" value="0.0680" style="width:100%; background:#0f172a; border:1px solid var(--border-glass); color:#fff; padding:5px 8px; border-radius:6px; font-family:var(--font-mono); font-size:12px;">
+            </div>
+        </div>
+        <div style="display:flex; gap:6px; justify-content:flex-end;">
+            <button id="btn-apply-manual-gps" class="active" style="padding:6px 12px;">Placer sur la carte</button>
+        </div>
+    </div>
+
+    <!-- Barre Temporelle Inférieure (48 pas de 30 min + Marégramme interactif) -->
+    <footer id="bottom-bar" class="panel">
+        <div class="playback-group">
+            <button id="btn-prev-step" title="Pas précédent (-30 min)">−30m</button>
+            <button id="btn-play" title="Lecture / Pause">
+                <svg id="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                <svg id="icon-pause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+            <button id="btn-next-step" title="Pas suivant (+30 min)">+30m</button>
+            <div class="time-readout">
+                <div id="time-display" class="mono">06:00</div>
+                <div id="step-display" class="mono">Pas 13/48 (30m)</div>
+            </div>
+            <button id="btn-speed" class="mono" title="Vitesse d'animation">1x</button>
+        </div>
+
+        <div class="timeline-group">
+            <div class="timeline-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="color:var(--text-muted);">Hauteur d'eau Le Havre :</span>
+                    <span id="tide-height-val" class="mono" style="font-weight:700; color:var(--accent-cyan);">6.42 m</span>
+                    <span id="tide-state-badge" style="font-size:10px; font-weight:700; padding:1px 7px; border-radius:99px; background:rgba(16,185,129,0.2); color:var(--accent-emerald);">FLOT</span>
+                </div>
+                <div id="tide-summary-inline" class="mono hide-mobile" style="font-size:10.5px; color:var(--text-muted);"></div>
+            </div>
+
+            <div id="tide-chart-wrap" title="Cliquer sur la courbe pour sauter à une heure précise">
+                <canvas id="tide-canvas"></canvas>
+            </div>
+
+            <input type="range" id="time-slider" min="0" max="47" step="1" value="12" aria-label="Curseur horaire par pas de 30 minutes">
+        </div>
+    </footer>
+
+    <!-- Bannière de diagnostic en cas d'anomalie -->
+    <div id="error-banner"></div>
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    /**
+     * Gestionnaire global d'erreur pour diagnostic immédiat si un navigateur restreint une API
+     */
+    function showFatalError(msg) {
+        const banner = document.getElementById("error-banner");
+        if (banner) {
+            banner.style.display = "block";
+            banner.textContent = "Erreur d'initialisation : " + msg;
+        }
+        console.error(msg);
+    }
+
+    try {
+        /* =====================================================================
+           1. CONSTANTES GÉOGRAPHIQUES & TRAIT DE CÔTE ULTRA-DÉTAILLÉ (BAIE DU HAVRE)
+           ===================================================================== */
+        const BOUNDS = {
+            minLon: -0.14,
+            maxLon: 0.30,
+            minLat: 49.36,
+            maxLat: 49.68
+        };
+        const COS_REF_LAT = Math.cos(49.51 * Math.PI / 180);
+
+        // Trait de côte haute résolution : Étretat/Antifer -> Cap de la Hève -> Ste-Adresse ->
+        // Digue Nord & Avant-port -> Port 2000 -> Estuaire -> Honfleur -> Villerville -> Deauville
+        const COASTLINE_POLY = [
+            // Fermeture terrestre Est & Sud-Est
+            [0.32, 49.69], [0.32, 49.35], [-0.02, 49.35],
+            // Côte Fleurie : Deauville / Trouville / Hennequeville / Villerville / Pennedepie / Honfleur
+            [0.068, 49.362], [0.085, 49.376], [0.105, 49.388], [0.128, 49.399],
+            [0.155, 49.408], [0.188, 49.416], [0.222, 49.422], [0.245, 49.425],
+            [0.305, 49.431],
+            // Rive Nord de l'estuaire (Tancarville / Oudalle / Digue basse Nord / Canal de Tancarville)
+            [0.305, 49.446], [0.235, 49.452], [0.185, 49.456], [0.148, 49.460],
+            // Grande digue extérieure de Port 2000 (avancée en mer créant un décrochage majeur)
+            [0.145, 49.464], [0.118, 49.463], [0.092, 49.466], [0.083, 49.473],
+            [0.087, 49.479], [0.106, 49.479],
+            // Passe d'entrée du port du Havre & Digue Sud / Digue Nord (Musoir Nord)
+            [0.106, 49.483], [0.091, 49.484], [0.086, 49.487], [0.095, 49.490],
+            [0.102, 49.491],
+            // Plage du Havre & Anse de Sainte-Adresse (épis et courbe abritée)
+            [0.096, 49.497], [0.087, 49.503], [0.077, 49.508], [0.068, 49.511],
+            // Cap de la Hève (avancée rocheuse marquée)
+            [0.060, 49.514], [0.059, 49.521], [0.064, 49.528],
+            // Falaises du Pays de Caux : Bléville, Octeville-sur-Mer, Cauville, St-Jouin-Bruneval
+            [0.072, 49.542], [0.082, 49.558], [0.094, 49.576], [0.108, 49.596],
+            [0.124, 49.618], [0.138, 49.638], [0.148, 49.655],
+            // Cap d'Antifer & Terminal pétrolier d'Antifer
+            [0.144, 49.666], [0.156, 49.675], [0.168, 49.685]
+        ];
+
+        // Digues submersibles de l'estuaire (guide du chenal de Rouen, visibles sur carte marine)
+        const SUBMERGED_DIKES = [
+            [[0.095, 49.454], [0.165, 49.451], [0.245, 49.446]], // Digue basse Nord
+            [[0.095, 49.443], [0.165, 49.441], [0.245, 49.437]]  // Digue basse Sud
+        ];
+
+        // Amers, Ports, Caps et Bouées clés de la Baie du Havre
+        const LANDMARKS = [
+            { name: "Cap d'Antifer", lon: 0.158, lat: 49.676, type: "cap" },
+            { name: "St-Jouin-Bruneval", lon: 0.128, lat: 49.642, type: "port" },
+            { name: "Octeville-s/-Mer", lon: 0.085, lat: 49.560, type: "cote" },
+            { name: "Cap de la Hève", lon: 0.060, lat: 49.516, type: "cap" },
+            { name: "Ste-Adresse", lon: 0.078, lat: 49.506, type: "port" },
+            { name: "PETITE RADE", lon: 0.056, lat: 49.496, type: "zone" },
+            { name: "Digue Nord", lon: 0.087, lat: 49.486, type: "structure" },
+            { name: "LE HAVRE", lon: 0.114, lat: 49.493, type: "major" },
+            { name: "Port 2000", lon: 0.116, lat: 49.470, type: "major" },
+            { name: "Bouée LH1", lon: -0.055, lat: 49.494, type: "buoy" },
+            { name: "Bouée LH2", lon: -0.052, lat: 49.482, type: "buoy" },
+            { name: "GRANDE RADE", lon: 0.015, lat: 49.485, type: "zone" },
+            { name: "Chenal Rouen (-15m)", lon: 0.035, lat: 49.453, type: "channel" },
+            { name: "Banc du Ratier", lon: 0.075, lat: 49.432, type: "bank" },
+            { name: "Honfleur", lon: 0.232, lat: 49.420, type: "port" },
+            { name: "Villerville", lon: 0.128, lat: 49.401, type: "port" },
+            { name: "Trouville / Deauville", lon: 0.076, lat: 49.365, type: "port" }
+        ];
+
+        // Sondes bathymétriques chiffrées (en mètres sous le zéro hydrographique)
+        const SOUNDINGS = [
+            { lon: -0.10, lat: 49.62, d: 21 },
+            { lon: 0.02, lat: 49.63, d: 18 },
+            { lon: 0.09, lat: 49.65, d: 13 },
+            { lon: -0.08, lat: 49.54, d: 17 },
+            { lon: 0.01, lat: 49.54, d: 14 },
+            { lon: 0.045, lat: 49.52, d: 9.5 },
+            { lon: 0.062, lat: 49.498, d: 7.2 },
+            { lon: 0.075, lat: 49.485, d: 8.5 },
+            { lon: -0.02, lat: 49.49, d: 12.5 },
+            { lon: 0.03, lat: 49.472, d: 11.0 },
+            { lon: 0.06, lat: 49.452, d: 15.2 },
+            { lon: 0.14, lat: 49.448, d: 14.5 },
+            { lon: 0.075, lat: 49.435, d: 1.4 },
+            { lon: 0.04, lat: 49.415, d: 4.8 },
+            { lon: 0.09, lat: 49.405, d: 3.2 },
+            { lon: 0.02, lat: 49.38, d: 6.5 }
+        ];
+
+        /* =====================================================================
+           2. ÉTAT GLOBAL DE L'APPLICATION (ZOOM PAR DÉFAUT SUR LA BAIE DU HAVRE)
+           ===================================================================== */
+        function getInitialDateAndStep() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, "0");
+            const d = String(now.getDate()).padStart(2, "0");
+            let dateStr = `${y}-${m}-${d}`;
+            if (dateStr < "2026-11-01") dateStr = "2026-11-19";
+            if (dateStr > "2027-12-31") dateStr = "2027-12-31";
+            const totalMin = now.getHours() * 60 + now.getMinutes();
+            const step = Math.max(0, Math.min(47, Math.round(totalMin / 30)));
+            return { dateStr, step };
+        }
+
+        const initTime = getInitialDateAndStep();
+
+        const state = {
+            selectedDate: initTime.dateStr,
+            timeStep: initTime.step,
+            isPlaying: false,      // En pause par défaut sur l'heure courante
+            speedIdx: 0,
+            autoCoeff: true,
+            coeff: 68,
+            dailyTide: null,
+            layers: {
+                particles: true,
+                vectors: true,
+                counter: true,
+                bathy: true,
+                labels: true
+            },
+            gps: {
+                active: false,
+                watchId: null,
+                lat: null,
+                lon: null,
+                accuracy: null,
+                speed: null,
+                heading: null,
+                hasFix: false,
+                centeredOnce: false
+            },
+            camera: {
+                centerLon: 0.055,
+                centerLat: 49.492,
+                zoom: 1.75
+            },
+            pointer: {
+                lon: 0.074,
+                lat: 49.501,
+                pinned: false
+            },
+            drag: {
+                active: false,
+                moved: false,
+                startX: 0,
+                startY: 0,
+                camLon: 0,
+                camLat: 0
+            }
+        };
+
+        const SPEEDS = [1, 2, 4];
+
+        /* =====================================================================
+           3. GÉOMÉTRIE & BATHYMÉTRIE HAUTE PRÉCISION (CHENAL, RADE, BANC DU RATIER)
+           ===================================================================== */
+        function isPointOnLand(lon, lat) {
+            if (lon < BOUNDS.minLon || lon > BOUNDS.maxLon || lat < BOUNDS.minLat || lat > BOUNDS.maxLat) {
+                return true;
+            }
+            let inside = false;
+            for (let i = 0, j = COASTLINE_POLY.length - 1; i < COASTLINE_POLY.length; j = i++) {
+                const xi = COASTLINE_POLY[i][0], yi = COASTLINE_POLY[i][1];
+                const xj = COASTLINE_POLY[j][0], yj = COASTLINE_POLY[j][1];
+                const intersect = ((yi > lat) !== (yj > lat)) &&
+                    (lon < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-12) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function computeChartedDepth(lon, lat) {
+            // Gradient général du large (NW) vers l'estuaire et la Côte Fleurie (SE)
+            const distWest = Math.max(0, 0.14 - lon);
+            const distNorth = Math.max(0, lat - 49.38);
+            let depth = 3.2 + distWest * 46.0 + distNorth * 34.0;
+
+            // Platier rocheux peu profond au pied des falaises (La Hève -> Antifer)
+            const cliffLineLon = 0.058 + Math.max(0, lat - 49.515) * 0.64;
+            if (lat > 49.505 && lon > cliffLineLon - 0.025) {
+                const dCliff = Math.max(0, cliffLineLon - lon);
+                depth = Math.min(depth, 2.2 + dCliff * 320.0);
+            }
+
+            // Petite Rade (5 m à 9 m devant Sainte-Adresse)
+            const dPetiteRade = Math.hypot((lon - 0.068) * COS_REF_LAT, lat - 49.498);
+            if (dPetiteRade < 0.035) {
+                depth = depth * 0.55 + 7.5 * 0.45;
+            }
+
+            // Chenal de navigation du Havre (accès Nord-Ouest vers Passe du Havre à -15.5m)
+            const chHavreLat = 49.486 + (0.09 - lon) * 0.08;
+            const dChHavre = Math.abs(lat - chHavreLat);
+            if (lon > -0.08 && lon < 0.11 && dChHavre < 0.012) {
+                const wCh = Math.exp(-(dChHavre * dChHavre) / 0.000018);
+                depth = depth * (1 - wCh) + 15.5 * wCh;
+            }
+
+            // Chenal de Rouen dans l'estuaire de la Seine (-14.5m entre digues)
+            const chRouenLat = 49.448 - Math.max(0, lon - 0.08) * 0.035 + Math.max(0, 0.08 - lon) * 0.18;
+            const dChRouen = Math.abs(lat - chRouenLat);
+            if (lon > -0.06 && dChRouen < 0.014) {
+                const wR = Math.exp(-(dChRouen * dChRouen) / 0.000022);
+                depth = depth * (1 - wR) + 14.8 * wR;
+            }
+
+            // Banc du Ratier & hauts-fonds découvrants au sud du chenal (0.5m à 2.5m)
+            const dRatier = Math.hypot((lon - 0.085) * COS_REF_LAT, lat - 49.430);
+            depth -= 6.8 * Math.exp(-(dRatier * dRatier) / 0.0014);
+
+            // Hauts-fonds de l'estuaire Nord (entre Port 2000 et le chenal)
+            const dNordEst = Math.hypot((lon - 0.16) * COS_REF_LAT, lat - 49.456);
+            depth -= 4.5 * Math.exp(-(dNordEst * dNordEst) / 0.0012);
+
+            return Math.max(0.4, Math.min(26.0, depth));
+        }
+
+        /* =====================================================================
+           4. MOTEUR HARMONIQUE ASTRONOMIQUE (PORT DU HAVRE — SHOM 2026-2027)
+           ===================================================================== */
+        const EPOCH_2026_UTC = Date.UTC(2026, 0, 1, 0, 0, 0);
+
+        function getFranceUtcOffset(dateStr) {
+            const [y, m, d] = dateStr.split("-").map(Number);
+            const marchLast = new Date(Date.UTC(y, 2, 31));
+            const dstStart = 31 - marchLast.getUTCDay();
+            const octLast = new Date(Date.UTC(y, 9, 31));
+            const dstEnd = 31 - octLast.getUTCDay();
+
+            const t = Date.UTC(y, m - 1, d, 12, 0, 0);
+            return (t >= Date.UTC(y, 2, dstStart, 1, 0, 0) && t < Date.UTC(y, 9, dstEnd, 1, 0, 0)) ? 2 : 1;
+        }
+
+        function computeSunTimes(dateStr, utcOffset) {
+            const [y, m, d] = dateStr.split("-").map(Number);
+            const dayOfYear = Math.floor((Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 0)) / 86400000);
+            const latRad = 49.49 * Math.PI / 180;
+            const decl = 0.4093 * Math.sin((2 * Math.PI / 365) * (dayOfYear - 81));
+            const cosH = Math.max(-1, Math.min(1, -Math.tan(latRad) * Math.tan(decl)));
+            const halfDay = (Math.acos(cosH) * 180 / Math.PI) / 15;
+            const eqTime = -0.171 * Math.sin(0.0337 * dayOfYear + 0.465) - 0.1299 * Math.sin(0.01787 * dayOfYear - 0.168);
+            const noonUtc = 12 - (0.11 / 15) - eqTime;
+
+            const sr = (noonUtc - halfDay + utcOffset + 24) % 24;
+            const ss = (noonUtc + halfDay + utcOffset + 24) % 24;
+
+            const fmt = (val) => {
+                const h = Math.floor(val);
+                const min = Math.floor((val - h) * 60);
+                return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
+            };
+            return { sunriseH: sr, sunsetH: ss, sunriseStr: fmt(sr), sunsetStr: fmt(ss) };
+        }
+
+        function evaluateTideAtHour(hoursSince2026, coeffOverride) {
+            const wM2 = 0.505868049;
+            const wS2 = 0.523598776;
+            const wN2 = 0.496366920;
+            const wK2 = 0.525032342;
+            const wK1 = 0.262516171;
+            const wO1 = 0.243351879;
+
+            const pM2 = wM2 * hoursSince2026 + 1.84;
+            const pS2 = wS2 * hoursSince2026 + 4.92;
+            const pN2 = wN2 * hoursSince2026 + 0.65;
+            const pK2 = wK2 * hoursSince2026 + 3.15;
+            const pK1 = wK1 * hoursSince2026 + 1.12;
+            const pO1 = wO1 * hoursSince2026 + 2.45;
+
+            const cSemi = 2.68 * Math.cos(pM2) + 0.94 * Math.cos(pS2) + 0.52 * Math.cos(pN2) + 0.27 * Math.cos(pK2);
+            const sSemi = 2.68 * Math.sin(pM2) + 0.94 * Math.sin(pS2) + 0.52 * Math.sin(pN2) + 0.27 * Math.sin(pK2);
+            const semiAmp = Math.hypot(cSemi, sSemi);
+
+            const astroCoeff = Math.max(22, Math.min(119, Math.round((semiAmp / 3.25) * 95)));
+            const activeCoeff = coeffOverride !== null ? coeffOverride : astroCoeff;
+            const scale = activeCoeff / astroCoeff;
+
+            // Hauteur d'eau au Havre (Z0 = 4.65m + tenue de plein M4/MS4)
+            const m4 = 0.26 * scale * Math.cos(2 * pM2 - 1.38);
+            const ms4 = 0.11 * scale * Math.cos(pM2 + pS2 - 1.15);
+            const diurnal = (0.14 * Math.cos(pK1) + 0.11 * Math.cos(pO1)) * (0.7 + 0.3 * scale);
+            const height = 4.65 + cSemi * scale + diurnal + m4 + ms4;
+
+            // Signal de courant (avance de phase de ~1h25 sur la PM du Havre)
+            const flowSignal = (
+                2.68 * Math.cos(pM2 + 0.72) +
+                0.94 * Math.cos(pS2 + 0.72) +
+                0.52 * Math.cos(pN2 + 0.72) +
+                0.27 * Math.cos(pK2 + 0.72)
+            ) * scale / 3.35 + 0.16 * scale * Math.cos(2 * pM2 + 0.95);
+
+            const quadSignal = (
+                2.68 * Math.sin(pM2 + 0.72) +
+                0.94 * Math.sin(pS2 + 0.72) +
+                0.52 * Math.sin(pN2 + 0.72)
+            ) * scale / 3.35;
+
+            return { height, flowSignal, quadSignal, astroCoeff };
+        }
+
+        function computeDailySchedule(dateStr) {
+            const [y, m, d] = dateStr.split("-").map(Number);
+            const utcOffset = getFranceUtcOffset(dateStr);
+            const startUtcMs = Date.UTC(y, m - 1, d, 0, 0, 0) - utcOffset * 3600000;
+            const baseH = (startUtcMs - EPOCH_2026_UTC) / 3600000;
+
+            const astroCoeff = evaluateTideAtHour(baseH + 12, null).astroCoeff;
+            const override = state.autoCoeff ? null : state.coeff;
+
+            const samples = [];
+            for (let min = -10; min <= 1450; min += 5) {
+                samples.push({ min, h: evaluateTideAtHour(baseH + min / 60, override).height });
+            }
+
+            const extrema = [];
+            for (let i = 1; i < samples.length - 1; i++) {
+                const prev = samples[i - 1].h, curr = samples[i].h, next = samples[i + 1].h;
+                const min = samples[i].min;
+                if (min < 0 || min >= 1440) continue;
+                if (curr >= prev && curr > next) {
+                    extrema.push({
+                        type: "PM",
+                        min,
+                        timeStr: String(Math.floor(min / 60)).padStart(2, "0") + "h" + String(min % 60).padStart(2, "0"),
+                        height: curr
+                    });
+                } else if (curr <= prev && curr < next) {
+                    extrema.push({
+                        type: "BM",
+                        min,
+                        timeStr: String(Math.floor(min / 60)).padStart(2, "0") + "h" + String(min % 60).padStart(2, "0"),
+                        height: curr
+                    });
+                }
+            }
+
+            const steps = [];
+            for (let s = 0; s < 48; s++) {
+                const ev = evaluateTideAtHour(baseH + s * 0.5, override);
+                steps.push({
+                    step: s,
+                    height: ev.height,
+                    flowSignal: ev.flowSignal,
+                    quadSignal: ev.quadSignal
+                });
+            }
+
+            return {
+                dateStr,
+                utcOffset,
+                astroCoeff,
+                activeCoeff: override !== null ? override : astroCoeff,
+                extrema,
+                steps,
+                sun: computeSunTimes(dateStr, utcOffset)
+            };
+        }
+
+        /* =====================================================================
+           5. MODÈLE HYDRODYNAMIQUE ULTRA-HAUTE RÉSOLUTION (240 × 175 MAILLES, ~160m)
+              Avec contre-courants de Sainte-Adresse, sillages de Port 2000 & Estuaire
+           ===================================================================== */
+        const NX = 240;
+        const NY = 175;
+        const NSTEPS = 48;
+
+        const landMask = new Uint8Array(NX * NY);
+        const bathyGrid = new Float32Array(NX * NY);
+
+        // Opérateurs spatiaux séparés pour le Flot (>0), le Jusant (<0) et la Renverse (quadrature)
+        // Permet de modéliser l'asymétrie réelle des contre-courants et sillages derrière les caps/digues !
+        const floodU = new Float32Array(NX * NY);
+        const floodV = new Float32Array(NX * NY);
+        const ebbU = new Float32Array(NX * NY);
+        const ebbV = new Float32Array(NX * NY);
+        const quadU = new Float32Array(NX * NY);
+        const quadV = new Float32Array(NX * NY);
+
+        // Indicateur de contre-courant (-1 = contre-courant opposé au flux principal, +1 = flux direct)
+        const counterScoreField = Array.from({ length: NSTEPS }, () => new Float32Array(NX * NY));
+        const uField = Array.from({ length: NSTEPS }, () => new Float32Array(NX * NY));
+        const vField = Array.from({ length: NSTEPS }, () => new Float32Array(NX * NY));
+
+        function initHighResHydrodynamics() {
+            const dLon = (BOUNDS.maxLon - BOUNDS.minLon) / (NX - 1);
+            const dLat = (BOUNDS.maxLat - BOUNDS.minLat) / (NY - 1);
+
+            for (let j = 0; j < NY; j++) {
+                const lat = BOUNDS.minLat + j * dLat;
+                for (let i = 0; i < NX; i++) {
+                    const lon = BOUNDS.minLon + i * dLon;
+                    const idx = j * NX + i;
+                    const onLand = isPointOnLand(lon, lat);
+                    landMask[idx] = onLand ? 1 : 0;
+                    if (onLand) {
+                        bathyGrid[idx] = 0;
+                        continue;
+                    }
+
+                    const depth = computeChartedDepth(lon, lat);
+                    bathyGrid[idx] = depth;
+
+                    /* ---------------------------------------------------------
+                       A. RÉGIME DE FLOT (Marée montante : flux général vers ENE/NNE)
+                       --------------------------------------------------------- */
+                    // 1. Flux principal au large remontant vers le Cap d'Antifer (NNE)
+                    let fU = 1.45;
+                    let fV = 1.85;
+                    // Déviation vers l'Est pour alimenter l'estuaire de la Seine au sud de 49.50°N
+                    const wEstFeed = Math.exp(-Math.pow((lat - 49.455) / 0.048, 2));
+                    fU += 1.65 * wEstFeed;
+                    fV -= 1.35 * wEstFeed;
+
+                    // 2. Accélération Venturi au droit de Port 2000 & Cap de la Hève (jusqu'à ~3.6-4.0 nds en VE)
+                    const dMusoirP2000 = Math.hypot((lon - 0.072) * COS_REF_LAT, lat - 49.474);
+                    const jetP2000 = 1.55 * Math.exp(-(dMusoirP2000 * dMusoirP2000) / 0.00055);
+                    fU += 0.65 * jetP2000;
+                    fV += 1.45 * jetP2000;
+
+                    const dHeve = Math.hypot((lon - 0.046) * COS_REF_LAT, lat - 49.518);
+                    const jetHeve = 1.40 * Math.exp(-(dHeve * dHeve) / 0.00065);
+                    fU += 0.55 * jetHeve;
+                    fV += 1.35 * jetHeve;
+
+                    // 3. CONTRE-COURANT DE SAINTE-ADRESSE / PETITE RADE AU FLOT :
+                    // Abrité entre la digue Nord (49.486°N) et le Cap de la Hève (49.515°N),
+                    // le jet longeant Port 2000 entraîne un tourbillon anticyclonique (horaire)
+                    // générant un contre-courant portant au Sud / Sud-Ouest le long de Sainte-Adresse !
+                    const dSteAdrFlot = Math.hypot((lon - 0.073) * COS_REF_LAT, lat - 49.499);
+                    if (dSteAdrFlot < 0.032) {
+                        const wSA = Math.exp(-(dSteAdrFlot * dSteAdrFlot) / 0.00024);
+                        // Remplacement du flux principal par le tourbillon de recirculation
+                        fU = fU * (1 - 0.92 * wSA) + ((lat - 49.499) * 58.0) * wSA;
+                        fV = fV * (1 - 0.92 * wSA) + (-(lon - 0.071) * COS_REF_LAT * 75.0 - 0.55) * wSA;
+                    }
+
+                    // 4. Sillage & contre-courant dans l'anse au Nord du Cap de la Hève (Octeville)
+                    const dOctFlot = Math.hypot((lon - 0.068) * COS_REF_LAT, lat - 49.534);
+                    if (dOctFlot < 0.028) {
+                        const wOct = Math.exp(-(dOctFlot * dOctFlot) / 0.00020);
+                        fU = fU * (1 - 0.85 * wOct) + ((lat - 49.534) * 42.0) * wOct;
+                        fV = fV * (1 - 0.85 * wOct) + (-(lon - 0.066) * COS_REF_LAT * 52.0 - 0.35) * wOct;
+                    }
+
+                    // 5. Remplissage rapide du Chenal de Rouen & Banc du Ratier au flot
+                    const dChenal = Math.abs(lat - 49.448);
+                    if (lon > 0.04 && dChenal < 0.018) {
+                        const wCh = Math.exp(-(dChenal * dChenal) / 0.000045);
+                        fU = fU * (1 - 0.8 * wCh) + 2.85 * wCh;
+                        fV = fV * (1 - 0.8 * wCh) - 0.08 * wCh;
+                    }
+
+                    // 6. Contre-courant côtier rive Sud (Villerville -> Honfleur au flot)
+                    const dRivSud = Math.hypot((lon - 0.155) * COS_REF_LAT, lat - 49.415);
+                    if (dRivSud < 0.045) {
+                        const wRS = Math.exp(-(dRivSud * dRivSud) / 0.00045);
+                        fU = fU * (1 - 0.85 * wRS) - 0.85 * wRS;
+                        fV = fV * (1 - 0.85 * wRS) - 0.25 * wRS;
+                    }
+
+                    /* ---------------------------------------------------------
+                       B. RÉGIME DE JUSANT (Marée descendante : vecteurs de sens Jusant)
+                       --------------------------------------------------------- */
+                    // 1. Flux général au large descendant vers le SSW / WSW
+                    let eU = -1.55;
+                    let eV = -1.75;
+
+                    // 2. Jet puissant sortant de l'estuaire de la Seine (canalisation chenal + déviation NW)
+                    const dJetSeine = Math.hypot((lon - 0.06) * COS_REF_LAT, lat - 49.455);
+                    const wJetSeine = Math.exp(-Math.pow((lat - (49.452 + Math.max(0, 0.08 - lon) * 0.28)) / 0.022, 2))
+                                    * Math.exp(-Math.pow((lon - 0.05) / 0.18, 2));
+                    eU = eU * (1 - 0.85 * wJetSeine) - 3.15 * wJetSeine;
+                    eV = eV * (1 - 0.85 * wJetSeine) + 0.85 * wJetSeine; // Sortie vers l'Ouest-Nord-Ouest
+
+                    // 3. Accélération Venturi au Cap de la Hève et au droit de Port 2000 au jusant
+                    eU -= 0.70 * jetHeve;
+                    eV -= 1.45 * jetHeve;
+                    eU -= 0.85 * jetP2000;
+                    eV -= 1.15 * jetP2000;
+
+                    // 4. CONTRE-COURANT DE SAINTE-ADRESSE / PETITE RADE AU JUSANT :
+                    // Abrité derrière le Cap de la Hève face au flux venant du Nord,
+                    // un contre-courant remonte vers le Nord / Nord-Est le long de Sainte-Adresse !
+                    const dSteAdrJusant = Math.hypot((lon - 0.072) * COS_REF_LAT, lat - 49.502);
+                    if (dSteAdrJusant < 0.034) {
+                        const wSAJ = Math.exp(-(dSteAdrJusant * dSteAdrJusant) / 0.00028);
+                        // Tourbillon cyclonique (antihoraire) remontant au Nord près de la plage
+                        eU = eU * (1 - 0.94 * wSAJ) + (-(lat - 49.502) * 52.0) * wSAJ;
+                        eV = eV * (1 - 0.94 * wSAJ) + (((lon - 0.069) * COS_REF_LAT * 78.0) + 0.72) * wSAJ;
+                    }
+
+                    // 5. Sillage tourbillonnaire au Sud de Port 2000 (entre Port 2000 et le jet de Seine)
+                    const dWakeP2000 = Math.hypot((lon - 0.095) * COS_REF_LAT, lat - 49.459);
+                    if (dWakeP2000 < 0.024) {
+                        const wWP = Math.exp(-(dWakeP2000 * dWakeP2000) / 0.00016);
+                        eU = eU * (1 - 0.85 * wWP) + 0.65 * wWP;
+                        eV = eV * (1 - 0.85 * wWP) - 0.25 * wWP;
+                    }
+
+                    // 6. Contre-courant sous le Cap d'Antifer au jusant
+                    const dAntifer = Math.hypot((lon - 0.145) * COS_REF_LAT, lat - 49.655);
+                    if (dAntifer < 0.032) {
+                        const wAnt = Math.exp(-(dAntifer * dAntifer) / 0.00025);
+                        eU = eU * (1 - 0.88 * wAnt) + 0.25 * wAnt;
+                        eV = eV * (1 - 0.88 * wAnt) + 0.75 * wAnt;
+                    }
+
+                    /* ---------------------------------------------------------
+                       C. COMPOSANTE GIRATOIRE À L'ÉTALE (QUADRATURE) & PAROIS
+                       --------------------------------------------------------- */
+                    let qU = 0.22 * Math.cos((lat - 49.50) * 20);
+                    let qV = -0.18 * Math.sin((lon - 0.05) * 20);
+
+                    // Déflexion tangentielle stricte le long des digues et falaises
+                    let repU = 0, repV = 0;
+                    for (let dj = -3; dj <= 3; dj++) {
+                        for (let di = -3; di <= 3; di++) {
+                            const ni = i + di, nj = j + dj;
+                            if (ni >= 0 && ni < NX && nj >= 0 && nj < NY) {
+                                if (isPointOnLand(BOUNDS.minLon + ni * dLon, BOUNDS.minLat + nj * dLat)) {
+                                    const d2 = di * di + dj * dj;
+                                    if (d2 > 0) {
+                                        repU -= di / d2;
+                                        repV -= dj / d2;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    const projectTangent = (u, v) => {
+                        if (repU === 0 && repV === 0) return [u, v];
+                        const len = Math.hypot(repU, repV);
+                        const nx = repU / len, ny = repV / len;
+                        const dot = u * nx + v * ny;
+                        if (dot < 0) {
+                            return [u - dot * nx * 1.12, v - dot * ny * 1.12];
+                        }
+                        return [u, v];
+                    };
+
+                    [fU, fV] = projectTangent(fU, fV);
+                    [eU, eV] = projectTangent(eU, eV);
+                    [qU, qV] = projectTangent(qU, qV);
+
+                    // Modulation par la bathymétrie (frottement sur les hauts-fonds, accélération dans le chenal)
+                    const friction = Math.min(1.08, 0.45 + (depth / 14.0) * 0.60);
+                    floodU[idx] = fU * friction;
+                    floodV[idx] = fV * friction;
+                    ebbU[idx] = eU * friction;
+                    ebbV[idx] = eV * friction;
+                    quadU[idx] = qU * friction;
+                    quadV[idx] = qV * friction;
+                }
+            }
+        }
+
+        // Reconstruction instantanée des 48 pas de temps (30 min) pour la date et le coefficient choisis
+        function rebuildTimeSeriesForDate() {
+            state.dailyTide = computeDailySchedule(state.selectedDate);
+            if (state.autoCoeff) {
+                state.coeff = state.dailyTide.astroCoeff;
+            }
+
+            const totalCells = NX * NY;
+            for (let s = 0; s < NSTEPS; s++) {
+                const { flowSignal, quadSignal } = state.dailyTide.steps[s];
+                const uArr = uField[s];
+                const vArr = vField[s];
+                const cArr = counterScoreField[s];
+
+                // Transition douce entre le modèle de Flot (flowSignal > 0) et le modèle de Jusant (flowSignal < 0)
+                const wFlood = Math.max(0, flowSignal);
+                const wEbb = Math.max(0, -flowSignal);
+
+                // Direction de référence du flux général au large
+                const refU = flowSignal >= 0 ? 1.45 : -1.55;
+                const refV = flowSignal >= 0 ? 1.85 : -1.75;
+                const refNorm = Math.hypot(refU, refV) || 1;
+
+                for (let idx = 0; idx < totalCells; idx++) {
+                    if (landMask[idx]) {
+                        uArr[idx] = 0;
+                        vArr[idx] = 0;
+                        cArr[idx] = 0;
+                    } else {
+                        const u = floodU[idx] * wFlood + ebbU[idx] * wEbb + quadU[idx] * quadSignal;
+                        const v = floodV[idx] * wFlood + ebbV[idx] * wEbb + quadV[idx] * quadSignal;
+                        uArr[idx] = u;
+                        vArr[idx] = v;
+
+                        const spd = Math.hypot(u, v);
+                        if (spd > 0.18 && Math.abs(flowSignal) > 0.22) {
+                            // Produit scalaire normalisé avec le flux principal du large
+                            const align = (u * refU + v * refV) / (spd * refNorm);
+                            cArr[idx] = align; // < -0.15 => contre-courant franc
+                        } else {
+                            cArr[idx] = 0;
+                        }
+                    }
+                }
+            }
+        }
+
+        function sampleCurrent(lon, lat, stepFloat) {
+            if (lon < BOUNDS.minLon || lon > BOUNDS.maxLon || lat < BOUNDS.minLat || lat > BOUNDS.maxLat) {
+                return { u: 0, v: 0, speed: 0, align: 0, land: true };
+            }
+            const fx = ((lon - BOUNDS.minLon) / (BOUNDS.maxLon - BOUNDS.minLon)) * (NX - 1);
+            const fy = ((lat - BOUNDS.minLat) / (BOUNDS.maxLat - BOUNDS.minLat)) * (NY - 1);
+            const i0 = Math.max(0, Math.min(NX - 2, Math.floor(fx)));
+            const j0 = Math.max(0, Math.min(NY - 2, Math.floor(fy)));
+            const tx = fx - i0;
+            const ty = fy - j0;
+
+            const idx00 = j0 * NX + i0;
+            const idx10 = idx00 + 1;
+            const idx01 = idx00 + NX;
+            const idx11 = idx01 + 1;
+
+            if (landMask[idx00] && landMask[idx10] && landMask[idx01] && landMask[idx11]) {
+                return { u: 0, v: 0, speed: 0, align: 0, land: true };
+            }
+
+            const s0 = Math.max(0, Math.min(NSTEPS - 1, Math.floor(stepFloat)));
+            const s1 = Math.max(0, Math.min(NSTEPS - 1, s0 + 1));
+            const ts = stepFloat - Math.floor(stepFloat);
+
+            const w00 = (1 - tx) * (1 - ty);
+            const w10 = tx * (1 - ty);
+            const w01 = (1 - tx) * ty;
+            const w11 = tx * ty;
+
+            const u0 = w00 * uField[s0][idx00] + w10 * uField[s0][idx10] + w01 * uField[s0][idx01] + w11 * uField[s0][idx11];
+            const v0 = w00 * vField[s0][idx00] + w10 * vField[s0][idx10] + w01 * vField[s0][idx01] + w11 * vField[s0][idx11];
+            const a0 = w00 * counterScoreField[s0][idx00] + w10 * counterScoreField[s0][idx10] + w01 * counterScoreField[s0][idx01] + w11 * counterScoreField[s0][idx11];
+
+            const u1 = w00 * uField[s1][idx00] + w10 * uField[s1][idx10] + w01 * uField[s1][idx01] + w11 * uField[s1][idx11];
+            const v1 = w00 * vField[s1][idx00] + w10 * vField[s1][idx10] + w01 * vField[s1][idx01] + w11 * vField[s1][idx11];
+            const a1 = w00 * counterScoreField[s1][idx00] + w10 * counterScoreField[s1][idx10] + w01 * counterScoreField[s1][idx01] + w11 * counterScoreField[s1][idx11];
+
+            const u = (1 - ts) * u0 + ts * u1;
+            const v = (1 - ts) * v0 + ts * v1;
+            const align = (1 - ts) * a0 + ts * a1;
+            return { u, v, speed: Math.hypot(u, v), align, land: false };
+        }
+
+        /* =====================================================================
+           6. RENDU CARTOGRAPHIQUE ULTRA-PRÉCIS & 4 500 PARTICULES
+           ===================================================================== */
+        const mapContainer = document.getElementById("map-container");
+        const mapCanvas = document.getElementById("map-canvas");
+        const ctx = mapCanvas.getContext("2d", { alpha: false });
+
+        const tideWrap = document.getElementById("tide-chart-wrap");
+        const tideCanvas = document.getElementById("tide-canvas");
+        const tCtx = tideCanvas.getContext("2d");
+
+        let viewW = 800;
+        let viewH = 600;
+        let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        function getScaleFactors() {
+            const spanLon = (BOUNDS.maxLon - BOUNDS.minLon) * COS_REF_LAT;
+            const spanLat = (BOUNDS.maxLat - BOUNDS.minLat);
+            const baseScale = Math.min(viewW / spanLon, viewH / spanLat) * state.camera.zoom;
+            return { sx: baseScale * COS_REF_LAT, sy: baseScale };
+        }
+
+        function geoToScreen(lon, lat) {
+            const { sx, sy } = getScaleFactors();
+            return {
+                x: viewW * 0.5 + (lon - state.camera.centerLon) * sx,
+                y: viewH * 0.5 - (lat - state.camera.centerLat) * sy
+            };
+        }
+
+        function screenToGeo(x, y) {
+            const { sx, sy } = getScaleFactors();
+            return {
+                lon: state.camera.centerLon + (x - viewW * 0.5) / sx,
+                lat: state.camera.centerLat - (y - viewH * 0.5) / sy
+            };
+        }
+
+        function clampCamera() {
+            state.camera.centerLon = Math.max(BOUNDS.minLon + 0.03, Math.min(BOUNDS.maxLon - 0.03, state.camera.centerLon));
+            state.camera.centerLat = Math.max(BOUNDS.minLat + 0.02, Math.min(BOUNDS.maxLat - 0.02, state.camera.centerLat));
+        }
+
+        function speedToColor(knots, alpha = 1) {
+            if (knots < 0.65) return `rgba(29, 78, 216, ${alpha})`;    // Bleu profond
+            if (knots < 1.35) return `rgba(6, 182, 212, ${alpha})`;    // Cyan
+            if (knots < 2.20) return `rgba(16, 185, 129, ${alpha})`;   // Émeraude
+            if (knots < 3.10) return `rgba(250, 204, 21, ${alpha})`;   // Jaune ambré
+            return `rgba(239, 68, 68, ${alpha})`;                      // Rouge vif (>3.1 nds)
+        }
+
+        const NUM_PARTICLES = 4500;
+        const particles = new Float32Array(NUM_PARTICLES * 4);
+
+        function respawnParticle(i) {
+            const base = i * 4;
+            for (let attempt = 0; attempt < 15; attempt++) {
+                // Concentration accrue dans la zone tactique Petite Rade / Port 2000 / La Hève (60% des particules)
+                let lon, lat;
+                if (i % 5 < 3) {
+                    lon = -0.04 + Math.random() * 0.22;
+                    lat = 49.42 + Math.random() * 0.14;
+                } else {
+                    lon = BOUNDS.minLon + Math.random() * (BOUNDS.maxLon - BOUNDS.minLon);
+                    lat = BOUNDS.minLat + Math.random() * (BOUNDS.maxLat - BOUNDS.minLat);
+                }
+                if (!isPointOnLand(lon, lat)) {
+                    particles[base] = lon;
+                    particles[base + 1] = lat;
+                    particles[base + 2] = 0;
+                    particles[base + 3] = 50 + Math.random() * 80;
+                    return;
+                }
+            }
+            particles[base] = 0.03;
+            particles[base + 1] = 49.50;
+            particles[base + 2] = 0;
+            particles[base + 3] = 60;
+        }
+
+        function initParticles() {
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                respawnParticle(i);
+                particles[i * 4 + 2] = Math.random() * particles[i * 4 + 3];
+            }
+        }
+
+        function renderBackgroundMap() {
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, viewH);
+            bgGrad.addColorStop(0, "#06162b");
+            bgGrad.addColorStop(1, "#0a2240");
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, viewW, viewH);
+
+            // Grille méridiens / parallèles fins (tous les 0.05°)
+            ctx.strokeStyle = "rgba(148, 163, 184, 0.09)";
+            ctx.lineWidth = 1;
+            ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
+            ctx.fillStyle = "rgba(148, 163, 184, 0.45)";
+
+            for (let lon = -0.15; lon <= 0.30; lon += 0.05) {
+                const p = geoToScreen(lon, 49.5);
+                if (p.x >= 0 && p.x <= viewW) {
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, 0);
+                    ctx.lineTo(p.x, viewH);
+                    ctx.stroke();
+                    const label = Math.abs(lon) < 0.001 ? "0°00'E" :
+                        (lon < 0 ? `0°${String(Math.round(Math.abs(lon) * 60)).padStart(2, "0")}'W`
+                                 : `0°${String(Math.round(lon * 60)).padStart(2, "0")}'E`);
+                    ctx.fillText(label, p.x + 3, viewH - 115);
+                }
+            }
+            for (let lat = 49.35; lat <= 49.70; lat += 0.05) {
+                const p = geoToScreen(0.05, lat);
+                if (p.y >= 0 && p.y <= viewH) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, p.y);
+                    ctx.lineTo(viewW, p.y);
+                    ctx.stroke();
+                    const deg = Math.floor(lat);
+                    const min = Math.round((lat - deg) * 60);
+                    ctx.fillText(`${deg}°${String(min).padStart(2, "0")}'N`, viewW - 52, p.y - 3);
+                }
+            }
+
+            // Couches Bathymétrie & Zones de Contre-Courant
+            if (state.layers.bathy || state.layers.counter) {
+                const stepI = 2;
+                const stepJ = 2;
+                const dLon = (BOUNDS.maxLon - BOUNDS.minLon) / (NX - 1);
+                const dLat = (BOUNDS.maxLat - BOUNDS.minLat) / (NY - 1);
+                const { sx, sy } = getScaleFactors();
+                const cellW = Math.ceil(dLon * stepI * sx) + 1;
+                const cellH = Math.ceil(dLat * stepJ * sy) + 1;
+
+                for (let j = 0; j < NY - 1; j += stepJ) {
+                    const lat = BOUNDS.minLat + j * dLat;
+                    for (let i = 0; i < NX - 1; i += stepI) {
+                        const idx = j * NX + i;
+                        if (landMask[idx]) continue;
+                        const lon = BOUNDS.minLon + i * dLon;
+                        const scr = geoToScreen(lon, lat);
+                        if (scr.x + cellW < 0 || scr.x > viewW || scr.y < 0 || scr.y - cellH > viewH) continue;
+
+                        if (state.layers.bathy) {
+                            const d = bathyGrid[idx];
+                            if (d < 3.0) {
+                                // Hauts-fonds découvrants / Banc du Ratier
+                                ctx.fillStyle = "rgba(56, 189, 248, 0.26)";
+                            } else if (d < 9.5) {
+                                // Petite Rade & estrans
+                                ctx.fillStyle = "rgba(14, 165, 233, 0.14)";
+                            } else if (d > 14.0) {
+                                // Chenal dragué profond (-15m)
+                                ctx.fillStyle = "rgba(2, 6, 23, 0.34)";
+                            } else {
+                                ctx.fillStyle = "rgba(14, 116, 144, 0.06)";
+                            }
+                            ctx.fillRect(scr.x, scr.y - cellH, cellW, cellH);
+                        }
+
+                        // Mise en évidence des zones de contre-courant & cisaillement
+                        if (state.layers.counter) {
+                            const align = counterScoreField[state.timeStep][idx];
+                            if (align < -0.15) {
+                                const intensity = Math.min(0.32, Math.abs(align) * 0.30);
+                                ctx.fillStyle = `rgba(217, 70, 239, ${intensity})`; // Halo magenta translucide
+                                ctx.fillRect(scr.x, scr.y - cellH, cellW, cellH);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Sondes bathymétriques chiffrées
+            if (state.layers.bathy && state.camera.zoom >= 1.1) {
+                ctx.font = "9.5px " + getComputedStyle(document.body).fontFamily;
+                ctx.fillStyle = "rgba(125, 211, 252, 0.55)";
+                ctx.textAlign = "center";
+                for (const s of SOUNDINGS) {
+                    const p = geoToScreen(s.lon, s.lat);
+                    if (p.x >= 0 && p.x <= viewW && p.y >= 0 && p.y <= viewH) {
+                        ctx.fillText(s.d.toFixed(s.d % 1 === 0 ? 0 : 1), p.x, p.y);
+                    }
+                }
+                ctx.textAlign = "left";
+            }
+        }
+
+        function renderLandAndLabels() {
+            // Digues submersibles de l'estuaire (en pointillés)
+            ctx.save();
+            ctx.setLineDash([5, 4]);
+            ctx.strokeStyle = "rgba(148, 163, 184, 0.55)";
+            ctx.lineWidth = 1.4;
+            for (const dike of SUBMERGED_DIKES) {
+                ctx.beginPath();
+                dike.forEach((pt, idx) => {
+                    const p = geoToScreen(pt[0], pt[1]);
+                    if (idx === 0) ctx.moveTo(p.x, p.y);
+                    else ctx.lineTo(p.x, p.y);
+                });
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // Rendu de la position GPS en temps réel si active et fixée
+            if (state.gps.active && state.gps.hasFix) {
+                const gp = geoToScreen(state.gps.lon, state.gps.lat);
+                const { sx } = getScaleFactors();
+
+                // Cercle de précision GPS
+                if (state.gps.accuracy) {
+                    const radiusPx = state.gps.accuracy * (sx / COS_REF_LAT);
+                    ctx.beginPath();
+                    ctx.arc(gp.x, gp.y, Math.max(10, radiusPx), 0, Math.PI * 2);
+                    ctx.fillStyle = "rgba(56, 189, 248, 0.12)";
+                    ctx.fill();
+                    ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([3, 3]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // Anneau de pulsation animé
+                const pulseRadius = 14 + Math.sin(Date.now() * 0.006) * 5;
+                ctx.beginPath();
+                ctx.arc(gp.x, gp.y, pulseRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = "rgba(56, 189, 248, 0.85)";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Point central GPS (Bleu vif)
+                ctx.beginPath();
+                ctx.arc(gp.x, gp.y, 6.5, 0, Math.PI * 2);
+                ctx.fillStyle = "#38bdf8";
+                ctx.fill();
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+
+                // Étiquette GPS avec vitesse sol si disponible
+                ctx.font = "bold 10.5px " + getComputedStyle(document.body).fontFamily;
+                ctx.fillStyle = "#38bdf8";
+                ctx.textAlign = "center";
+                const speedTxt = state.gps.speed !== null ? ` • Vitesse : ${state.gps.speed.toFixed(1)} nds` : "";
+                ctx.fillText(`📍 Ma Position GPS${speedTxt}`, gp.x, gp.y - 20);
+                ctx.textAlign = "left";
+            }
+
+            // Polygone terrestre haute précision
+            ctx.beginPath();
+            for (let i = 0; i < COASTLINE_POLY.length; i++) {
+                const p = geoToScreen(COASTLINE_POLY[i][0], COASTLINE_POLY[i][1]);
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            }
+            ctx.closePath();
+            ctx.fillStyle = "#0d1624";
+            ctx.fill();
+            ctx.lineWidth = 1.8;
+            ctx.strokeStyle = "rgba(56, 189, 248, 0.72)";
+            ctx.stroke();
+
+            // Repères nautiques, bouées et zones tactiques
+            if (state.layers.labels) {
+                ctx.textBaseline = "middle";
+                for (const lm of LANDMARKS) {
+                    const p = geoToScreen(lm.lon, lm.lat);
+                    if (p.x < -50 || p.x > viewW + 50 || p.y < -20 || p.y > viewH + 20) continue;
+
+                    if (lm.type === "zone" || lm.type === "bank" || lm.type === "channel") {
+                        ctx.font = "italic bold 10px " + getComputedStyle(document.body).fontFamily;
+                        ctx.fillStyle = lm.type === "bank" ? "rgba(125, 211, 252, 0.85)" : "rgba(226, 232, 240, 0.62)";
+                        ctx.textAlign = "center";
+                        ctx.fillText(lm.name, p.x, p.y);
+                        ctx.textAlign = "left";
+                    } else if (lm.type === "buoy") {
+                        // Symbole losange pour les bouées d'atterrissage LH1 / LH2
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y - 4.5);
+                        ctx.lineTo(p.x + 4, p.y);
+                        ctx.lineTo(p.x, p.y + 4.5);
+                        ctx.lineTo(p.x - 4, p.y);
+                        ctx.closePath();
+                        ctx.fillStyle = "#f43f5e";
+                        ctx.fill();
+                        ctx.font = "bold 9.5px " + getComputedStyle(document.body).fontFamily;
+                        ctx.fillStyle = "#fda4af";
+                        ctx.fillText(lm.name, p.x + 6, p.y);
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, lm.type === "major" ? 3.8 : 2.5, 0, Math.PI * 2);
+                        ctx.fillStyle = lm.type === "major" ? "#fbbf24" : (lm.type === "structure" ? "#22d3ee" : "#38bdf8");
+                        ctx.fill();
+
+                        ctx.font = (lm.type === "major" ? "bold 11px " : "10px ") + getComputedStyle(document.body).fontFamily;
+                        ctx.fillStyle = lm.type === "major" ? "#fef3c7" : "#e2e8f0";
+                        ctx.fillText(lm.name, p.x + 6, p.y);
+                    }
+                }
+            }
+
+            // Marqueur du point inspecté (survol ou épinglé)
+            const ip = geoToScreen(state.pointer.lon, state.pointer.lat);
+            ctx.beginPath();
+            ctx.arc(ip.x, ip.y, state.pointer.pinned ? 6.5 : 5, 0, Math.PI * 2);
+            ctx.strokeStyle = state.pointer.pinned ? "#fbbf24" : "#ffffff";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function renderVectors() {
+            if (!state.layers.vectors) return;
+            const stride = Math.max(3, Math.round(8 / Math.sqrt(state.camera.zoom)));
+            const dLon = (BOUNDS.maxLon - BOUNDS.minLon) / (NX - 1);
+            const dLat = (BOUNDS.maxLat - BOUNDS.minLat) / (NY - 1);
+
+            ctx.lineWidth = 1.4;
+            for (let j = 1; j < NY - 1; j += stride) {
+                const lat = BOUNDS.minLat + j * dLat;
+                for (let i = 1; i < NX - 1; i += stride) {
+                    const idx = j * NX + i;
+                    if (landMask[idx]) continue;
+
+                    const lon = BOUNDS.minLon + i * dLon;
+                    const p = geoToScreen(lon, lat);
+                    if (p.x < 0 || p.x > viewW || p.y < 0 || p.y > viewH) continue;
+
+                    const u = uField[state.timeStep][idx];
+                    const v = vField[state.timeStep][idx];
+                    const spd = Math.hypot(u, v);
+                    if (spd < 0.06) continue;
+
+                    const angle = Math.atan2(-v, u);
+                    const len = Math.min(26, 6 + spd * 5.2);
+                    const ex = p.x + Math.cos(angle) * len;
+                    const ey = p.y + Math.sin(angle) * len;
+
+                    const isCounter = state.layers.counter && counterScoreField[state.timeStep][idx] < -0.15;
+                    ctx.strokeStyle = isCounter ? "rgba(232, 121, 249, 0.95)" : speedToColor(spd, 0.88);
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(ex, ey);
+                    const head = 4.2;
+                    ctx.lineTo(ex - head * Math.cos(angle - 0.45), ey - head * Math.sin(angle - 0.45));
+                    ctx.moveTo(ex, ey);
+                    ctx.lineTo(ex - head * Math.cos(angle + 0.45), ey - head * Math.sin(angle + 0.45));
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function stepAndRenderParticles() {
+            if (!state.layers.particles) return;
+            const dtGeo = 0.00018 / Math.sqrt(state.camera.zoom);
+            ctx.lineWidth = 1.45;
+
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                const base = i * 4;
+                let lon = particles[base];
+                let lat = particles[base + 1];
+                let age = particles[base + 2] + 1;
+                const maxAge = particles[base + 3];
+
+                if (age >= maxAge) {
+                    respawnParticle(i);
+                    continue;
+                }
+
+                const cur = sampleCurrent(lon, lat, state.timeStep);
+                if (cur.land || cur.speed < 0.025) {
+                    respawnParticle(i);
+                    continue;
+                }
+
+                const p0 = geoToScreen(lon, lat);
+                lon += (cur.u / COS_REF_LAT) * dtGeo;
+                lat += cur.v * dtGeo;
+
+                if (isPointOnLand(lon, lat)) {
+                    respawnParticle(i);
+                    continue;
+                }
+
+                particles[base] = lon;
+                particles[base + 1] = lat;
+                particles[base + 2] = age;
+
+                if (p0.x >= 0 && p0.x <= viewW && p0.y >= 0 && p0.y <= viewH) {
+                    const p1 = geoToScreen(lon, lat);
+                    const lifeAlpha = Math.sin((age / maxAge) * Math.PI) * 0.88;
+                    const isCounter = state.layers.counter && cur.align < -0.15;
+                    ctx.strokeStyle = isCounter ? `rgba(240, 171, 252, ${lifeAlpha})` : speedToColor(cur.speed, lifeAlpha);
+                    ctx.beginPath();
+                    ctx.moveTo(p0.x, p0.y);
+                    ctx.lineTo(p1.x, p1.y);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function renderTideChart() {
+            if (!state.dailyTide) return;
+            const rect = tideWrap.getBoundingClientRect();
+            const w = Math.max(100, rect.width);
+            const h = Math.max(30, rect.height);
+
+            if (tideCanvas.width !== Math.round(w * dpr) || tideCanvas.height !== Math.round(h * dpr)) {
+                tideCanvas.width = Math.round(w * dpr);
+                tideCanvas.height = Math.round(h * dpr);
+            }
+
+            tCtx.save();
+            tCtx.scale(dpr, dpr);
+            tCtx.clearRect(0, 0, w, h);
+
+            // Zones nuit (lever/coucher du soleil)
+            const { sunriseH, sunsetH } = state.dailyTide.sun;
+            const srX = (sunriseH / 23.5) * w;
+            const ssX = (sunsetH / 23.5) * w;
+            tCtx.fillStyle = "rgba(2, 6, 23, 0.55)";
+            tCtx.fillRect(0, 0, Math.max(0, srX), h);
+            tCtx.fillRect(Math.min(w, ssX), 0, Math.max(0, w - ssX), h);
+
+            // Courbe de hauteur d'eau
+            const minH = 0.2, maxH = 9.0;
+            tCtx.beginPath();
+            for (let s = 0; s < NSTEPS; s++) {
+                const x = (s / (NSTEPS - 1)) * w;
+                const th = state.dailyTide.steps[s].height;
+                const y = h - ((th - minH) / (maxH - minH)) * (h - 10) - 5;
+                if (s === 0) tCtx.moveTo(x, y);
+                else tCtx.lineTo(x, y);
+            }
+            tCtx.strokeStyle = "#38bdf8";
+            tCtx.lineWidth = 2;
+            tCtx.stroke();
+
+            tCtx.lineTo(w, h);
+            tCtx.lineTo(0, h);
+            tCtx.closePath();
+            tCtx.fillStyle = "rgba(56, 189, 248, 0.16)";
+            tCtx.fill();
+
+            // Repères PM / BM
+            for (const ext of state.dailyTide.extrema) {
+                const ex = (ext.min / (23.5 * 60)) * w;
+                const ey = h - ((ext.height - minH) / (maxH - minH)) * (h - 10) - 5;
+                tCtx.beginPath();
+                tCtx.arc(ex, ey, 2.5, 0, Math.PI * 2);
+                tCtx.fillStyle = ext.type === "PM" ? "#38bdf8" : "#94a3b8";
+                tCtx.fill();
+            }
+
+            // Curseur temps actif
+            const curX = (state.timeStep / (NSTEPS - 1)) * w;
+            const curH = state.dailyTide.steps[state.timeStep].height;
+            const curY = h - ((curH - minH) / (maxH - minH)) * (h - 10) - 5;
+
+            tCtx.strokeStyle = "#fbbf24";
+            tCtx.lineWidth = 1.5;
+            tCtx.beginPath();
+            tCtx.moveTo(curX, 0);
+            tCtx.lineTo(curX, h);
+            tCtx.stroke();
+
+            tCtx.beginPath();
+            tCtx.arc(curX, curY, 3.8, 0, Math.PI * 2);
+            tCtx.fillStyle = "#fbbf24";
+            tCtx.fill();
+            tCtx.restore();
+        }
+
+        /* =====================================================================
+           7. MISES À JOUR DE L'INTERFACE UTILISATEUR (DOM)
+           ===================================================================== */
+        function formatGps(lon, lat) {
+            const ns = lat >= 0 ? "N" : "S";
+            const ew = lon >= 0 ? "E" : "W";
+            const aLat = Math.abs(lat), aLon = Math.abs(lon);
+            const dLat = Math.floor(aLat), mLat = ((aLat - dLat) * 60).toFixed(1);
+            const dLon = Math.floor(aLon), mLon = ((aLon - dLon) * 60).toFixed(1);
+            return `${String(dLat).padStart(2, "0")}°${mLat.padStart(4, "0")}'${ns} ${String(dLon).padStart(2, "0")}°${mLon.padStart(4, "0")}'${ew}`;
+        }
+
+        function getCardinal(deg) {
+            const dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+            return dirs[Math.round(deg / 22.5) % 16];
+        }
+
+        function getSectorName(lon, lat) {
+            if (lat > 49.62) return "Cap d'Antifer / Bruneval";
+            if (lon > 0.055 && lon < 0.105 && lat >= 49.483 && lat <= 49.516) return "Petite Rade / Ste-Adresse";
+            if (lon > 0.04 && lon < 0.145 && lat >= 49.458 && lat < 49.483) return "Abords Port 2000 / Passe";
+            if (lon >= 0.04 && lat >= 49.438 && lat < 49.458) return "Chenal de la Seine";
+            if (lon >= 0.04 && lat < 49.438) return "Banc du Ratier / Rive Sud";
+            if (lon <= 0.055 && lat >= 49.45 && lat <= 49.53) return "Grande Rade du Havre";
+            if (lat < 49.42) return "Côte Fleurie / Deauville";
+            return "Approches Nord-Ouest";
+        }
+
+        function updateCalendarAndTidesUI() {
+            const data = state.dailyTide;
+            if (!data) return;
+
+            document.getElementById("date-picker").value = state.selectedDate;
+            const [y, m, d] = state.selectedDate.split("-").map(Number);
+            const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+            const days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+            document.getElementById("date-display-fr").textContent =
+                `${days[dt.getUTCDay()]} ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${String(y).slice(-2)}`;
+
+            const cVal = document.getElementById("coeff-val");
+            cVal.textContent = data.activeCoeff;
+            cVal.style.color = data.activeCoeff >= 85 ? "var(--accent-amber)" : "var(--accent-sky)";
+
+            const cLab = document.getElementById("coeff-label");
+            cLab.textContent = data.activeCoeff >= 95 ? "Gde Vive-Eau" :
+                               data.activeCoeff >= 78 ? "Vive-Eau" :
+                               data.activeCoeff >= 58 ? "Moyenne" : "Morte-Eau";
+
+            const tag = document.getElementById("coeff-mode-tag");
+            tag.textContent = state.autoCoeff ? "SHOM" : "FORCÉ";
+            tag.style.color = state.autoCoeff ? "var(--accent-emerald)" : "var(--accent-amber)";
+
+            document.getElementById("sun-display").textContent = `☀ ${data.sun.sunriseStr} • ☾ ${data.sun.sunsetStr}`;
+            document.getElementById("tz-display").textContent = data.utcOffset === 2 ? "CEST (UTC+2)" : "CET (UTC+1)";
+
+            const listEl = document.getElementById("daily-tides-list");
+            const inlineEl = document.getElementById("tide-summary-inline");
+            listEl.innerHTML = "";
+            inlineEl.innerHTML = "";
+
+            for (const ext of data.extrema) {
+                const isPm = ext.type === "PM";
+                const item = document.createElement("div");
+                item.className = "tide-item " + (isPm ? "pm" : "bm");
+                item.title = "Sauter à " + ext.timeStr;
+                item.innerHTML = `<span style="font-weight:700; color:${isPm ? "var(--accent-sky)" : "#cbd5e1"};">${ext.type} ${ext.timeStr}</span><span class="mono" style="color:var(--accent-cyan);">${ext.height.toFixed(2)}m</span>`;
+                item.addEventListener("click", () => {
+                    state.timeStep = Math.max(0, Math.min(47, Math.round(ext.min / 30)));
+                    updateTimeAndInspectorUI();
+                });
+                listEl.appendChild(item);
+
+                const sp = document.createElement("span");
+                sp.style.marginLeft = "10px";
+                sp.innerHTML = `${ext.type} <strong style="color:#f1f5f9;">${ext.timeStr}</strong> (${ext.height.toFixed(1)}m)`;
+                inlineEl.appendChild(sp);
+            }
+        }
+
+        function updateTimeAndInspectorUI() {
+            const totalMin = state.timeStep * 30;
+            const hh = String(Math.floor(totalMin / 60)).padStart(2, "0");
+            const mm = String(totalMin % 60).padStart(2, "0");
+            document.getElementById("time-display").textContent = `${hh}:${mm}`;
+            document.getElementById("step-display").textContent = `Pas ${state.timeStep + 1}/48 (30m)`;
+            document.getElementById("time-slider").value = state.timeStep;
+
+            const hNow = state.dailyTide.steps[state.timeStep].height;
+            const hNext = state.dailyTide.steps[Math.min(47, state.timeStep + 1)].height;
+            const dh = hNext - hNow;
+
+            document.getElementById("tide-height-val").textContent = hNow.toFixed(2) + " m";
+            const badge = document.getElementById("tide-state-badge");
+            if (Math.abs(dh) < 0.06) {
+                badge.textContent = hNow > 4.65 ? "ÉTALE PM" : "ÉTALE BM";
+                badge.style.background = "rgba(251, 191, 36, 0.2)";
+                badge.style.color = "var(--accent-amber)";
+            } else if (dh > 0) {
+                badge.textContent = "FLOT";
+                badge.style.background = "rgba(16, 185, 129, 0.2)";
+                badge.style.color = "var(--accent-emerald)";
+            } else {
+                badge.textContent = "JUSANT";
+                badge.style.background = "rgba(56, 189, 248, 0.2)";
+                badge.style.color = "var(--accent-sky)";
+            }
+
+            // Heure relative par rapport à la PM la plus proche
+            const pms = state.dailyTide.extrema.filter(e => e.type === "PM");
+            let relStr = "---";
+            if (pms.length > 0) {
+                let best = pms[0];
+                for (const pm of pms) {
+                    if (Math.abs(totalMin - pm.min) < Math.abs(totalMin - best.min)) best = pm;
+                }
+                const diff = totalMin - best.min;
+                const sign = diff >= 0 ? "+" : "-";
+                const a = Math.abs(diff);
+                relStr = `PM ${sign} ${String(Math.floor(a / 60)).padStart(2, "0")}h${String(a % 60).padStart(2, "0")}`;
+            }
+            document.getElementById("insp-rel-pm").textContent = relStr;
+
+            // Inspecteur au point courant
+            const { lon, lat, pinned } = state.pointer;
+            const modeEl = document.getElementById("insp-mode");
+            modeEl.textContent = pinned ? "ÉPINGLÉ" : "SURVOL";
+            modeEl.style.color = pinned ? "var(--accent-amber)" : "#cbd5e1";
+
+            document.getElementById("insp-coords").textContent = formatGps(lon, lat);
+            document.getElementById("insp-sector").textContent = getSectorName(lon, lat);
+
+            const cur = sampleCurrent(lon, lat, state.timeStep);
+            const regimeEl = document.getElementById("insp-regime");
+            if (cur.land) {
+                document.getElementById("insp-knots").textContent = "0.00";
+                document.getElementById("insp-ms").textContent = "Terre ferme";
+                document.getElementById("insp-deg").textContent = "---";
+                document.getElementById("insp-card").textContent = "TERRE";
+                document.getElementById("insp-phase-txt").textContent = "Hors eau";
+                document.getElementById("insp-depth").textContent = "0.0 m (Estran)";
+                regimeEl.textContent = "Terre / Digue";
+                regimeEl.style.color = "#94a3b8";
+            } else {
+                const deg = (Math.atan2(cur.u, cur.v) * 180 / Math.PI + 360) % 360;
+                const dChart = computeChartedDepth(lon, lat);
+                document.getElementById("insp-knots").textContent = cur.speed.toFixed(2);
+                document.getElementById("insp-ms").textContent = (cur.speed * 0.514444).toFixed(2) + " m/s";
+                document.getElementById("insp-deg").textContent = Math.round(deg) + "°";
+                document.getElementById("insp-card").textContent = getCardinal(deg);
+                document.getElementById("insp-depth").textContent = `${dChart.toFixed(1)} m (${(dChart + hNow).toFixed(1)} m)`;
+
+                const phEl = document.getElementById("insp-phase-txt");
+                if (cur.speed < 0.30) {
+                    phEl.textContent = "Étale / Renverse";
+                    phEl.style.color = "var(--accent-amber)";
+                    regimeEl.textContent = "Étale locale";
+                    regimeEl.style.color = "#fbbf24";
+                } else if (cur.align < -0.15) {
+                    phEl.textContent = "Contre-courant !";
+                    phEl.style.color = "#e879f9";
+                    regimeEl.textContent = "Contre-courant côtier";
+                    regimeEl.style.color = "#e879f9";
+                } else if (cur.align < 0.35) {
+                    phEl.textContent = "Cisaillement / Eddy";
+                    phEl.style.color = "#38bdf8";
+                    regimeEl.textContent = "Tourbillon / Cisaillement";
+                    regimeEl.style.color = "#38bdf8";
+                } else {
+                    phEl.textContent = cur.v > 0 || cur.u > 0.8 ? "Veine de Flot" : "Veine de Jusant";
+                    phEl.style.color = "var(--accent-emerald)";
+                    regimeEl.textContent = "Flux principal";
+                    regimeEl.style.color = "#34d399";
+                }
+            }
+
+            renderTideChart();
+        }
+
+        /* =====================================================================
+           8. GESTIONNAIRES D'ÉVÉNEMENTS & INTERACTIONS
+           ===================================================================== */
+        function setDate(newDate) {
+            if (!newDate) return;
+            const clamped = newDate < "2026-11-01" ? "2026-11-01" : (newDate > "2027-12-31" ? "2027-12-31" : newDate);
+            state.selectedDate = clamped;
+            rebuildTimeSeriesForDate();
+            updateCalendarAndTidesUI();
+            updateTimeAndInspectorUI();
+        }
+
+        function shiftDate(days) {
+            const [y, m, d] = state.selectedDate.split("-").map(Number);
+            const dt = new Date(Date.UTC(y, m - 1, d + days, 12, 0, 0));
+            setDate(dt.toISOString().slice(0, 10));
+        }
+
+        document.getElementById("date-picker").addEventListener("change", (e) => setDate(e.target.value));
+        document.getElementById("btn-prev-day").addEventListener("click", () => shiftDate(-1));
+        document.getElementById("btn-next-day").addEventListener("click", () => shiftDate(1));
+        document.getElementById("btn-today").addEventListener("click", () => {
+            const cur = getInitialDateAndStep();
+            state.timeStep = cur.step;
+            setDate(cur.dateStr);
+        });
+
+        document.querySelectorAll(".preset-date").forEach(btn => {
+            btn.addEventListener("click", () => setDate(btn.dataset.date));
+        });
+
+        // Boutons coefficient
+        function setActiveCoeffBtn(targetBtn) {
+            document.querySelectorAll(".coeff-btn").forEach(b => b.classList.remove("active"));
+            targetBtn.classList.add("active");
+        }
+
+        document.getElementById("btn-coeff-auto").addEventListener("click", (e) => {
+            state.autoCoeff = true;
+            setActiveCoeffBtn(e.currentTarget);
+            rebuildTimeSeriesForDate();
+            updateCalendarAndTidesUI();
+            updateTimeAndInspectorUI();
+        });
+
+        document.querySelectorAll(".coeff-btn[data-coeff]").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                state.autoCoeff = false;
+                state.coeff = parseInt(btn.dataset.coeff, 10);
+                setActiveCoeffBtn(e.currentTarget);
+                rebuildTimeSeriesForDate();
+                updateCalendarAndTidesUI();
+                updateTimeAndInspectorUI();
+            });
+        });
+
+        // Contrôles temporels
+        document.getElementById("time-slider").addEventListener("input", (e) => {
+            state.timeStep = parseInt(e.target.value, 10);
+            updateTimeAndInspectorUI();
+        });
+
+        document.getElementById("btn-prev-step").addEventListener("click", () => {
+            state.timeStep = (state.timeStep + 47) % 48;
+            updateTimeAndInspectorUI();
+        });
+
+        document.getElementById("btn-next-step").addEventListener("click", () => {
+            state.timeStep = (state.timeStep + 1) % 48;
+            updateTimeAndInspectorUI();
+        });
+
+        document.getElementById("btn-play").addEventListener("click", () => {
+            state.isPlaying = !state.isPlaying;
+            document.getElementById("icon-play").style.display = state.isPlaying ? "none" : "block";
+            document.getElementById("icon-pause").style.display = state.isPlaying ? "block" : "none";
+        });
+
+        document.getElementById("btn-speed").addEventListener("click", (e) => {
+            state.speedIdx = (state.speedIdx + 1) % SPEEDS.length;
+            e.currentTarget.textContent = SPEEDS[state.speedIdx] + "x";
+        });
+
+        // Clic sur le marégramme pour sauter à une heure
+        tideWrap.addEventListener("click", (e) => {
+            const rect = tideWrap.getBoundingClientRect();
+            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            state.timeStep = Math.round(ratio * 47);
+            updateTimeAndInspectorUI();
+        });
+
+        // Bascule des couches cartographiques
+        document.querySelectorAll(".layer-toggle").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const layer = btn.dataset.layer;
+                state.layers[layer] = !state.layers[layer];
+                btn.classList.toggle("on", state.layers[layer]);
+            });
+        });
+
+        // Panneau latéral repliable (replié automatiquement sur mobile pour laisser la carte plein écran)
+        const sideWrap = document.getElementById("side-panel-wrapper");
+        if (window.innerWidth <= 860) {
+            sideWrap.classList.add("collapsed");
+        }
+        document.getElementById("btn-collapse-sidebar").addEventListener("click", () => sideWrap.classList.add("collapsed"));
+        document.getElementById("btn-toggle-sidebar").addEventListener("click", () => sideWrap.classList.remove("collapsed"));
+
+        // Gestion de la géolocalisation GPS en temps réel + Saisie manuelle si bloqué par iFrame (Google Sites)
+        const btnGeo = document.getElementById("btn-geo");
+        const manualGpsModal = document.getElementById("manual-gps-modal");
+
+        function parseCoordInput(str, isLon) {
+            const clean = str.trim().toUpperCase().replace(",", ".");
+            // Format Degrés Minutes décimales (ex: 49°29.8'N ou 00°04.1'E)
+            const dmMatch = clean.match(/^(-?\d+)[°\s]+(\d+(?:\.\d+)?)['\s]*([NSEW])?$/);
+            if (dmMatch) {
+                let deg = parseFloat(dmMatch[1]);
+                const min = parseFloat(dmMatch[2]);
+                const hem = dmMatch[3];
+                let val = Math.abs(deg) + min / 60;
+                if (deg < 0 || hem === "S" || hem === "W") val = -val;
+                return val;
+            }
+            // Format Décimal (ex: 49.496 ou -0.05)
+            const numMatch = clean.match(/^(-?\d+(?:\.\d+)?)\s*([NSEW])?$/);
+            if (numMatch) {
+                let val = parseFloat(numMatch[1]);
+                const hem = numMatch[2];
+                if (hem === "S" || hem === "W") val = -Math.abs(val);
+                return val;
+            }
+            return NaN;
+        }
+
+        document.getElementById("btn-close-gps-modal").addEventListener("click", () => {
+            manualGpsModal.style.display = "none";
+        });
+
+        document.getElementById("btn-apply-manual-gps").addEventListener("click", () => {
+            const lat = parseCoordInput(document.getElementById("manual-lat").value, false);
+            const lon = parseCoordInput(document.getElementById("manual-lon").value, true);
+            if (isNaN(lat) || isNaN(lon) || lat < 48 || lat > 51 || lon < -2 || lon > 2) {
+                showNotification("Coordonnées invalides (attendu autour de 49.50°N, 0.07°E).");
+                return;
+            }
+            state.gps.active = true;
+            state.gps.hasFix = true;
+            state.gps.lat = lat;
+            state.gps.lon = lon;
+            state.gps.accuracy = 15;
+            state.gps.speed = null;
+            btnGeo.classList.add("active");
+            btnGeo.style.background = "var(--accent-sky)";
+            btnGeo.style.color = "#04101e";
+            state.camera.centerLon = lon;
+            state.camera.centerLat = lat;
+            state.camera.zoom = Math.max(state.camera.zoom, 2.8);
+            manualGpsModal.style.display = "none";
+            showNotification(`Position placée : ${formatGps(lon, lat)}`);
+        });
+
+        function showNotification(text) {
+            let banner = document.getElementById("error-banner");
+            if (!banner) return;
+            banner.style.display = "block";
+            banner.style.background = "rgba(15, 23, 42, 0.95)";
+            banner.style.border = "1px solid var(--accent-sky)";
+            banner.style.color = "var(--accent-sky)";
+            banner.textContent = text;
+            setTimeout(() => {
+                if (banner.textContent === text) {
+                    banner.style.display = "none";
+                }
+            }, 4500);
+        }
+
+        function toggleGeoLocation() {
+            if (!navigator.geolocation) {
+                manualGpsModal.style.display = "block";
+                return;
+            }
+
+            if (state.gps.active) {
+                if (state.gps.watchId !== null) {
+                    navigator.geolocation.clearWatch(state.gps.watchId);
+                }
+                state.gps.active = false;
+                state.gps.watchId = null;
+                state.gps.hasFix = false;
+                btnGeo.classList.remove("active");
+                btnGeo.style.background = "";
+                btnGeo.style.color = "";
+                showNotification("Position GPS masquée.");
+            } else {
+                state.gps.active = true;
+                state.gps.centeredOnce = false;
+                btnGeo.classList.add("active");
+                btnGeo.style.background = "var(--accent-sky)";
+                btnGeo.style.color = "#04101e";
+                showNotification("Acquisition GPS en cours...");
+
+                state.gps.watchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        state.gps.lat = position.coords.latitude;
+                        state.gps.lon = position.coords.longitude;
+                        state.gps.accuracy = position.coords.accuracy;
+                        state.gps.speed = position.coords.speed !== null ? position.coords.speed * 1.94384 : null;
+                        state.gps.heading = position.coords.heading;
+                        state.gps.hasFix = true;
+
+                        if (!state.gps.centeredOnce) {
+                            state.gps.centeredOnce = true;
+                            state.camera.centerLon = state.gps.lon;
+                            state.camera.centerLat = state.gps.lat;
+                            state.camera.zoom = Math.max(state.camera.zoom, 3.0);
+                            showNotification(`GPS actif (Précision : ±${Math.round(state.gps.accuracy)}m)`);
+                        }
+                    },
+                    (error) => {
+                        state.gps.active = false;
+                        state.gps.hasFix = false;
+                        if (state.gps.watchId !== null) {
+                            navigator.geolocation.clearWatch(state.gps.watchId);
+                            state.gps.watchId = null;
+                        }
+                        btnGeo.classList.remove("active");
+                        btnGeo.style.background = "";
+                        btnGeo.style.color = "";
+
+                        if (error && error.code === 1) {
+                            // Bloqué par Google Sites / iFrame sans allow="geolocation" -> proposer la saisie manuelle
+                            manualGpsModal.style.display = "block";
+                            showNotification("GPS bloqué par Google Sites : utilisez la saisie manuelle.");
+                        } else if (error && error.code === 3) {
+                            showNotification("Délai GPS dépassé. Vérifiez que la localisation du téléphone est activée.");
+                        } else {
+                            manualGpsModal.style.display = "block";
+                            showNotification("Signal GPS indisponible : saisie manuelle ouverte.");
+                        }
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        maximumAge: 5000,
+                        timeout: 20000
+                    }
+                );
+            }
+        }
+
+        btnGeo.addEventListener("click", toggleGeoLocation);
+
+        // =====================================================================
+        // MODE NAVIGATION : ÉCRAN ALLUMÉ (SCREEN WAKE LOCK) & SUPPORT HORS-LIGNE (PWA)
+        // =====================================================================
+        const btnWake = document.getElementById("btn-wake");
+        let wakeLockSentinel = null;
+        let wakeLockDesired = false;
+
+        async function requestScreenWakeLock() {
+            if (!("wakeLock" in navigator)) {
+                showNotification("Mode écran actif non supporté sur ce navigateur.");
+                return;
+            }
+            try {
+                wakeLockSentinel = await navigator.wakeLock.request("screen");
+                wakeLockDesired = true;
+                btnWake.classList.add("active");
+                btnWake.style.background = "var(--accent-amber)";
+                btnWake.style.color = "#04101e";
+                btnWake.style.borderColor = "var(--accent-amber)";
+                showNotification("Écran maintenu allumé pour la navigation.");
+
+                wakeLockSentinel.addEventListener("release", () => {
+                    wakeLockSentinel = null;
+                    if (!wakeLockDesired) {
+                        btnWake.classList.remove("active");
+                        btnWake.style.background = "";
+                        btnWake.style.color = "";
+                        btnWake.style.borderColor = "";
+                    }
+                });
+            } catch (err) {
+                wakeLockDesired = false;
+                btnWake.classList.remove("active");
+                showNotification("Impossible de verrouiller l'écran (batterie faible ou cadre restreint).");
+            }
+        }
+
+        async function toggleScreenWakeLock() {
+            if (wakeLockSentinel || wakeLockDesired) {
+                wakeLockDesired = false;
+                if (wakeLockSentinel) {
+                    try { await wakeLockSentinel.release(); } catch (_) {}
+                    wakeLockSentinel = null;
+                }
+                btnWake.classList.remove("active");
+                btnWake.style.background = "";
+                btnWake.style.color = "";
+                btnWake.style.borderColor = "";
+                showNotification("Mise en veille normale de l'écran rétablie.");
+            } else {
+                await requestScreenWakeLock();
+            }
+        }
+
+        btnWake.addEventListener("click", toggleScreenWakeLock);
+
+        // Réacquisition automatique du Wake Lock si l'utilisateur revient sur l'application
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible" && wakeLockDesired && !wakeLockSentinel) {
+                requestScreenWakeLock();
+            }
+        });
+
+        // Initialisation dynamique du Manifeste PWA + Service Worker hors-ligne intégré
+        function initOfflinePwaSupport() {
+            try {
+                // 1. Génération de l'icône nautique SVG encodée pour le Manifeste
+                const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#060d18"/><circle cx="256" cy="256" r="190" fill="none" stroke="#38bdf8" stroke-width="18" stroke-opacity="0.35"/><path d="M96 220c45-36 85-36 130 0s85 36 130 0 85-36 110 0" fill="none" stroke="#38bdf8" stroke-width="28" stroke-linecap="round"/><path d="M96 300c45-36 85-36 130 0s85 36 130 0 85-36 110 0" fill="none" stroke="#22d3ee" stroke-width="28" stroke-linecap="round"/></svg>`;
+                const iconUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSvg);
+
+                const manifestObj = {
+                    name: "Courants Baie du Havre • SHOM 30m",
+                    short_name: "Courants LH",
+                    description: "Carte haute résolution des courants de marée en Baie du Havre et Estuaire de la Seine",
+                    start_url: window.location.href.split("#")[0],
+                    display: "standalone",
+                    orientation: "any",
+                    background_color: "#060d18",
+                    theme_color: "#060d18",
+                    icons: [
+                        { src: iconUrl, sizes: "192x192", type: "image/svg+xml", purpose: "any maskable" },
+                        { src: iconUrl, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" }
+                    ]
+                };
+
+                const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: "application/manifest+json" });
+                const manifestLink = document.getElementById("pwa-manifest-link");
+                if (manifestLink) {
+                    manifestLink.href = URL.createObjectURL(manifestBlob);
+                }
+
+                // 2. Enregistrement du Service Worker intégré (hors-ligne) sur contexte HTTPS/localhost
+                if ("serviceWorker" in navigator && (window.location.protocol === "https:" || window.location.hostname === "localhost")) {
+                    const swCode = `
+                        const CACHE_NAME = 'courants-lehavre-offline-v1';
+                        self.addEventListener('install', (event) => {
+                            self.skipWaiting();
+                            event.waitUntil(
+                                caches.open(CACHE_NAME).then((cache) => {
+                                    return cache.addAll([self.registration.scope]).catch(() => {});
+                                })
+                            );
+                        });
+                        self.addEventListener('activate', (event) => {
+                            event.waitUntil(
+                                caches.keys().then((keys) => Promise.all(
+                                    keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+                                )).then(() => self.clients.claim())
+                            );
+                        });
+                        self.addEventListener('fetch', (event) => {
+                            if (event.request.method !== 'GET') return;
+                            event.respondWith(
+                                caches.match(event.request).then((cached) => {
+                                    const networkFetch = fetch(event.request).then((response) => {
+                                        if (response && response.status === 200) {
+                                            const copy = response.clone();
+                                            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+                                        }
+                                        return response;
+                                    }).catch(() => cached);
+                                    return cached || networkFetch;
+                                })
+                            );
+                        });
+                    `;
+                    const swBlob = new Blob([swCode], { type: "application/javascript" });
+                    const swUrl = URL.createObjectURL(swBlob);
+                    navigator.serviceWorker.register(swUrl).catch(() => {
+                        // Certains hébergeurs restreignent les SW via Blob URL : repli silencieux
+                    });
+                }
+            } catch (_) {
+                // Repli silencieux en environnement sandbox
+            }
+        }
+
+        initOfflinePwaSupport();
+
+        // Zoom & Panoramique sur le Canvas
+        document.getElementById("btn-zoom-in").addEventListener("click", () => {
+            state.camera.zoom = Math.min(8.0, state.camera.zoom * 1.35);
+        });
+        document.getElementById("btn-zoom-out").addEventListener("click", () => {
+            state.camera.zoom = Math.max(0.95, state.camera.zoom / 1.35);
+        });
+        document.getElementById("btn-reset-view").addEventListener("click", () => {
+            state.camera.centerLon = 0.055;
+            state.camera.centerLat = 49.492;
+            state.camera.zoom = 1.75;
+        });
+        document.getElementById("btn-full-bay").addEventListener("click", () => {
+            state.camera.centerLon = 0.06;
+            state.camera.centerLat = 49.52;
+            state.camera.zoom = 1.02;
+        });
+
+        mapCanvas.addEventListener("wheel", (e) => {
+            e.preventDefault();
+            const factor = e.deltaY < 0 ? 1.18 : 1 / 1.18;
+            state.camera.zoom = Math.max(0.95, Math.min(8.0, state.camera.zoom * factor));
+        }, { passive: false });
+
+        mapCanvas.addEventListener("pointerdown", (e) => {
+            state.drag.active = true;
+            state.drag.moved = false;
+            state.drag.startX = e.clientX;
+            state.drag.startY = e.clientY;
+            state.drag.camLon = state.camera.centerLon;
+            state.drag.camLat = state.camera.centerLat;
+            mapCanvas.setPointerCapture(e.pointerId);
+        });
+
+        mapCanvas.addEventListener("pointermove", (e) => {
+            const rect = mapCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (state.drag.active) {
+                const dx = e.clientX - state.drag.startX;
+                const dy = e.clientY - state.drag.startY;
+                if (Math.hypot(dx, dy) > 4) state.drag.moved = true;
+                const { sx, sy } = getScaleFactors();
+                state.camera.centerLon = state.drag.camLon - dx / sx;
+                state.camera.centerLat = state.drag.camLat + dy / sy;
+                clampCamera();
+            } else if (!state.pointer.pinned) {
+                const geo = screenToGeo(x, y);
+                state.pointer.lon = geo.lon;
+                state.pointer.lat = geo.lat;
+                updateTimeAndInspectorUI();
+            }
+        });
+
+        mapCanvas.addEventListener("pointerup", (e) => {
+            if (state.drag.active && !state.drag.moved) {
+                const rect = mapCanvas.getBoundingClientRect();
+                const geo = screenToGeo(e.clientX - rect.left, e.clientY - rect.top);
+                state.pointer.lon = geo.lon;
+                state.pointer.lat = geo.lat;
+                state.pointer.pinned = !state.pointer.pinned;
+                updateTimeAndInspectorUI();
+            }
+            state.drag.active = false;
+        });
+
+        /* =====================================================================
+           9. DIMENSIONNEMENT ROBUSTE & BOUCLE D'ANIMATION
+           ===================================================================== */
+        function syncCanvasDimensions() {
+            const rect = mapContainer.getBoundingClientRect();
+            const w = Math.max(300, rect.width || window.innerWidth || 800);
+            const h = Math.max(240, rect.height || window.innerHeight || 600);
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+            if (viewW !== w || viewH !== h || mapCanvas.width !== Math.round(w * dpr)) {
+                viewW = w;
+                viewH = h;
+                mapCanvas.width = Math.round(w * dpr);
+                mapCanvas.height = Math.round(h * dpr);
+            }
+            renderTideChart();
+        }
+
+        if (typeof ResizeObserver !== "undefined") {
+            const ro = new ResizeObserver(() => syncCanvasDimensions());
+            ro.observe(mapContainer);
+        }
+        window.addEventListener("resize", syncCanvasDimensions);
+
+        let lastStepTick = 0;
+        function animationLoop(timestamp) {
+            if (state.isPlaying) {
+                const intervalMs = 1300 / SPEEDS[state.speedIdx];
+                if (timestamp - lastStepTick >= intervalMs) {
+                    lastStepTick = timestamp;
+                    state.timeStep = (state.timeStep + 1) % 48;
+                    updateTimeAndInspectorUI();
+                }
+            }
+
+            ctx.save();
+            ctx.scale(dpr, dpr);
+            renderBackgroundMap();
+            renderVectors();
+            stepAndRenderParticles();
+            renderLandAndLabels();
+            ctx.restore();
+
+            requestAnimationFrame(animationLoop);
+        }
+
+        // Initialisation immédiate
+        initHighResHydrodynamics();
+        rebuildTimeSeriesForDate();
+        initParticles();
+        syncCanvasDimensions();
+        updateCalendarAndTidesUI();
+        updateTimeAndInspectorUI();
+        requestAnimationFrame(animationLoop);
+
+    } catch (err) {
+        showFatalError(err && err.message ? err.message : String(err));
+    }
+})();
+</script>
+</body>
+</html>
