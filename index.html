@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#060d18">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Courants LH">
@@ -2547,7 +2548,8 @@
                     name: "Courants Baie du Havre • SHOM 30m",
                     short_name: "Courants LH",
                     description: "Carte haute résolution des courants de marée en Baie du Havre et Estuaire de la Seine",
-                    start_url: window.location.href.split("#")[0],
+                    start_url: "./",
+                    scope: "./",
                     display: "standalone",
                     orientation: "any",
                     background_color: "#060d18",
@@ -2558,16 +2560,16 @@
                     ]
                 };
 
-                const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: "application/manifest+json" });
+                // Encodage data: URL compatible avec GitHub Pages (évite les restrictions Android Chrome sur les Blob URLs)
                 const manifestLink = document.getElementById("pwa-manifest-link");
                 if (manifestLink) {
-                    manifestLink.href = URL.createObjectURL(manifestBlob);
+                    manifestLink.href = "data:application/manifest+json;charset=utf-8," + encodeURIComponent(JSON.stringify(manifestObj));
                 }
 
                 // 2. Enregistrement du Service Worker intégré (hors-ligne) sur contexte HTTPS/localhost
                 if ("serviceWorker" in navigator && (window.location.protocol === "https:" || window.location.hostname === "localhost")) {
                     const swCode = `
-                        const CACHE_NAME = 'courants-lehavre-offline-v1';
+                        const CACHE_NAME = 'courants-lehavre-offline-v2';
                         self.addEventListener('install', (event) => {
                             self.skipWaiting();
                             event.waitUntil(
