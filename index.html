@@ -959,6 +959,13 @@
                 startY: 0,
                 camLon: 0,
                 camLat: 0
+            },
+            pinch: {
+                active: false,
+                initialDist: 0,
+                initialZoom: 1,
+                anchorLon: 0,
+                anchorLat: 0
             }
         };
 
@@ -2527,22 +2534,68 @@
             state.camera.zoom = Math.max(0.95, Math.min(8.0, state.camera.zoom * factor));
         }, { passive: false });
 
+        // =====================================================================
+        // GESTION TACTILE MULTI-TOUCH (PINCH-TO-ZOOM À 2 DOIGTS) & SOURIS
+        // =====================================================================
+        const activePointers = new Map();
+
+        function getPinchMetrics() {
+            const pts = Array.from(activePointers.values());
+            const dx = pts[1].clientX - pts[0].clientX;
+            const dy = pts[1].clientY - pts[0].clientY;
+            const dist = Math.hypot(dx, dy);
+            const rect = mapCanvas.getBoundingClientRect();
+            const midX = (pts[0].clientX + pts[1].clientX) * 0.5 - rect.left;
+            const midY = (pts[0].clientY + pts[1].clientY) * 0.5 - rect.top;
+            return { dist, midX, midY };
+        }
+
         mapCanvas.addEventListener("pointerdown", (e) => {
-            state.drag.active = true;
-            state.drag.moved = false;
-            state.drag.startX = e.clientX;
-            state.drag.startY = e.clientY;
-            state.drag.camLon = state.camera.centerLon;
-            state.drag.camLat = state.camera.centerLat;
+            activePointers.set(e.pointerId, e);
             mapCanvas.setPointerCapture(e.pointerId);
+
+            if (activePointers.size === 2) {
+                // Démarrage du pincement à deux doigts
+                state.drag.active = false;
+                state.drag.moved = true;
+                const { dist, midX, midY } = getPinchMetrics();
+                const anchorGeo = screenToGeo(midX, midY);
+                state.pinch.active = true;
+                state.pinch.initialDist = Math.max(10, dist);
+                state.pinch.initialZoom = state.camera.zoom;
+                state.pinch.anchorLon = anchorGeo.lon;
+                state.pinch.anchorLat = anchorGeo.lat;
+            } else if (activePointers.size === 1) {
+                state.pinch.active = false;
+                state.drag.active = true;
+                state.drag.moved = false;
+                state.drag.startX = e.clientX;
+                state.drag.startY = e.clientY;
+                state.drag.camLon = state.camera.centerLon;
+                state.drag.camLat = state.camera.centerLat;
+            }
         });
 
         mapCanvas.addEventListener("pointermove", (e) => {
+            if (activePointers.has(e.pointerId)) {
+                activePointers.set(e.pointerId, e);
+            }
+
             const rect = mapCanvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            if (state.drag.active) {
+            if (state.pinch.active && activePointers.size >= 2) {
+                const { dist, midX, midY } = getPinchMetrics();
+                const scaleRatio = dist / state.pinch.initialDist;
+                state.camera.zoom = Math.max(0.95, Math.min(8.0, state.pinch.initialZoom * scaleRatio));
+
+                // Maintenir le point géographique entre les deux doigts sous le centre du pincement
+                const { sx, sy } = getScaleFactors();
+                state.camera.centerLon = state.pinch.anchorLon - (midX - viewW * 0.5) / sx;
+                state.camera.centerLat = state.pinch.anchorLat + (midY - viewH * 0.5) / sy;
+                clampCamera();
+            } else if (state.drag.active && activePointers.size === 1) {
                 const dx = e.clientX - state.drag.startX;
                 const dy = e.clientY - state.drag.startY;
                 if (Math.hypot(dx, dy) > 4) state.drag.moved = true;
@@ -2550,7 +2603,7 @@
                 state.camera.centerLon = state.drag.camLon - dx / sx;
                 state.camera.centerLat = state.drag.camLat + dy / sy;
                 clampCamera();
-            } else if (!state.pointer.pinned) {
+            } else if (!state.pointer.pinned && activePointers.size === 0) {
                 const geo = screenToGeo(x, y);
                 state.pointer.lon = geo.lon;
                 state.pointer.lat = geo.lat;
@@ -2558,8 +2611,26 @@
             }
         });
 
-        mapCanvas.addEventListener("pointerup", (e) => {
-            if (state.drag.active && !state.drag.moved) {
+        function handlePointerEnd(e) {
+            activePointers.delete(e.pointerId);
+
+            if (activePointers.size < 2) {
+                state.pinch.active = false;
+            }
+
+            if (activePointers.size === 1) {
+                // Reprise fluide du déplacement à un doigt après avoir levé le deuxième doigt
+                const remaining = Array.from(activePointers.values())[0];
+                state.drag.active = true;
+                state.drag.moved = true;
+                state.drag.startX = remaining.clientX;
+                state.drag.startY = remaining.clientY;
+                state.drag.camLon = state.camera.centerLon;
+                state.drag.camLat = state.camera.centerLat;
+                return;
+            }
+
+            if (state.drag.active && !state.drag.moved && activePointers.size === 0) {
                 const rect = mapCanvas.getBoundingClientRect();
                 const geo = screenToGeo(e.clientX - rect.left, e.clientY - rect.top);
                 state.pointer.lon = geo.lon;
@@ -2568,7 +2639,10 @@
                 updateTimeAndInspectorUI();
             }
             state.drag.active = false;
-        });
+        }
+
+        mapCanvas.addEventListener("pointerup", handlePointerEnd);
+        mapCanvas.addEventListener("pointercancel", handlePointerEnd);
 
         /* =====================================================================
            9. DIMENSIONNEMENT ROBUSTE & BOUCLE D'ANIMATION
